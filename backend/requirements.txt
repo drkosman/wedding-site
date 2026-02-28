@@ -8,9 +8,11 @@ greenlet==3.3.1
 h11==0.16.0
 httptools==0.7.1
 idna==3.11
+psycopg[binary]
 pydantic==2.12.5
 pydantic_core==2.41.5
 python-dotenv==1.2.1
+python-multipart==0.0.22
 PyYAML==6.0.3
 SQLAlchemy==2.0.46
 sqlmodel==0.0.33
