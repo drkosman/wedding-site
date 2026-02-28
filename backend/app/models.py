@@ -2,8 +2,7 @@ from typing import Optional
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 from uuid import uuid4
-
-
+from pydantic import BaseModel
 
 class Guest(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -33,3 +32,9 @@ class RSVPRequest(BaseModel):
     guest_count: int = 1
     dietary_requirements: Optional[str] = None
     message: Optional[str] = None
+    
+class GuestRequest(BaseModel):
+    name: str
+    email: Optional[str] = None
+    plus_one_allowed: bool = False
+    max_guests: int = 1

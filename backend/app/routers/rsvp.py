@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from app.database import get_session
-from app.models import Guest, RSVP, RSVPRequest
+from app.models import Guest, RSVP, RSVPRequest, GuestRequest
 from datetime import datetime
 
 router = APIRouter()
-
+   
 @router.get("/guest/{token}")
 def get_guest(token: str, session: Session = Depends(get_session)):
     statement = select(Guest).where(Guest.token == token)
