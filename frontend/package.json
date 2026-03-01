@@ -10,13 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@deck.gl/core": "^9.2.7",
+    "@arcgis/core": "^5.0.6",
+    "@arcgis/map-components": "^5.0.6",
     "@deck.gl/extensions": "^9.2.7",
-    "@deck.gl/geo-layers": "^9.2.7",
-    "@deck.gl/layers": "^9.2.7",
-    "@deck.gl/react": "^9.2.7",
+    "@esri/calcite-components": "^5.0.2",
     "axios": "^1.13.5",
-    "deck.gl": "^9.2.7",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^5.18.0",
     "react": "^19.2.0",

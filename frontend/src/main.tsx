@@ -1,4 +1,6 @@
-import 'leaflet/dist/leaflet.css';
+import "@arcgis/map-components/dist/components";
+import "@arcgis/core/assets/esri/themes/light/main.css";
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
