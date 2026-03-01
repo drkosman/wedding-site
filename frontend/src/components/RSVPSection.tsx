@@ -5,22 +5,28 @@ export default function RSVPSection() {
   const { guest, token, loading } = useGuest();
 
   return (
-    <section className="py-24 px-6 bg-neutral-50 text-center">
-      <div className="max-w-3xl mx-auto">
-        <h2 className="text-3xl font-serif mb-4">RSVP</h2>
+    <section className="section bg-white text-center">
+      <div className="container-page max-w-3xl">
+        <h2 className="text-3xl font-semibold mb-6">
+          RSVP
+        </h2>
 
-        <div className="w-24 h-px bg-neutral-300 mx-auto mb-10" />
+        <div className="w-20 h-px mx-auto mb-12 bg-primary/40 rounded-full" />
 
-        {loading && <p className="text-neutral-500">Loading your invitation…</p>}
+        {loading && (
+          <p className="text-muted-foreground">
+            Loading your invitation…
+          </p>
+        )}
 
         {!loading && !guest && (
-          <p className="text-neutral-600">
+          <p className="text-muted-foreground">
             Please use your personal RSVP link from the invitation.
           </p>
         )}
 
         {guest && token && (
-          <div className="mt-6">
+          <div className="mt-8">
             <RSVPForm guest={guest} token={token} />
           </div>
         )}

@@ -1,103 +1,166 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* =========================================
+   THEME TOKENS
+========================================= */
 
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@theme {
+  --color-primary: #b8d5e6;
+  --color-primary-hover: #608296;
+  --color-secondary: #f0f1f7;
+  --color-accent: #f6e7d7;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --color-background: #ffffff;
+  --color-foreground: #2b2f38;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-muted: #f4f5f7;
+  --color-muted-foreground: #6b7280;
+
+  --color-border: #e5e7eb;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
+/* =========================================
+   BASE
+========================================= */
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    @apply antialiased;
   }
-  a:hover {
-    color: #747bff;
+
+  h1 {
+    @apply text-4xl md:text-5xl font-semibold tracking-tight;
   }
-  button {
-    background-color: #f9f9f9;
+
+  h2 {
+    @apply text-3xl font-semibold tracking-tight;
+  }
+
+  p {
+    color: var(--color-muted-foreground);
+    @apply leading-relaxed;
   }
 }
 
-.pulse-marker {
-  width: 20px;
-  height: 20px;
-  background: #ef4444;
-  border-radius: 50%;
-  position: relative;
-}
+/* =========================================
+   LAYOUT
+========================================= */
 
-.pulse-marker::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: rgba(239, 68, 68, 0.4);
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.7;
+@layer components {
+  .container-page {
+    @apply max-w-3xl mx-auto px-6 py-16;
   }
-  100% {
-    transform: scale(4);
-    opacity: 0;
+
+  .section {
+    @apply py-8;
+  }
+
+  .divider {
+    @apply h-px my-10;
+    background-color: var(--color-border);
+  }
+}
+
+/* =========================================
+   CARDS
+========================================= */
+
+@layer components {
+  .card {
+    @apply rounded-lg p-6 border;
+    background-color: white;
+    border-color: var(--color-border);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-soft {
+    @apply rounded-lg p-6 border;
+    background-color: var(--color-secondary);
+    border-color: var(--color-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-title {
+    @apply text-xl font-semibold mb-2;
+  }
+
+  .card-description {
+    @apply text-sm;
+    color: var(--color-muted-foreground);
+  }
+}
+
+/* =========================================
+   BUTTONS
+========================================= */
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center
+           px-5 py-2.5 text-sm font-medium
+           rounded-md transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center
+           px-5 py-2.5 text-sm font-medium
+           rounded-md transition-all duration-200
+           text-white;
+    background-color: var(--color-primary);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center
+           px-5 py-2.5 text-sm font-medium
+           rounded-md transition-all duration-200 border;
+    background-color: var(--color-secondary);
+    border-color: var(--color-border);
+    color: var(--color-foreground);
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center
+           px-5 py-2.5 text-sm font-medium
+           rounded-md transition-all duration-200 border;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .btn-outline:hover {
+    background-color: var(--color-primary);
+    color: white;
+  }
+}
+
+/* =========================================
+   INPUTS
+========================================= */
+
+@layer components {
+  .input {
+    @apply w-full rounded-md px-4 py-2.5 text-sm
+           transition focus:outline-none focus:ring-2;
+    border: 1px solid var(--color-border);
+    background-color: white;
+  }
+
+  .input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(214, 92, 122, 0.2);
+  }
+
+  .label {
+    @apply text-sm font-medium mb-1 block;
+  }
+
+  .form-group {
+    @apply space-y-2;
   }
 }
