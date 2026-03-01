@@ -30,33 +30,37 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8 space-y-6"
+      className="card max-w-md mx-auto space-y-8"
     >
-      <h2 className="text-2xl font-serif text-center">RSVP for {guest.name}</h2>
+      <h2 className="text-2xl font-semibold text-center">
+        RSVP for {guest.name}
+      </h2>
 
       {/* Attending */}
-      <div>
-        <p className="font-medium mb-2">Will you be attending?</p>
+      <div className="space-y-3 text-center">
+        <p className="font-medium">Will you be attending?</p>
 
-        <div className="flex gap-6 justify-center">
-          <label className="flex items-center gap-2">
+        <div className="flex justify-center gap-10">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
               value="yes"
               {...register('attending', {
                 setValueAs: (v) => v === 'yes',
               })}
+              className="accent-[var(--color-primary)]"
             />
             Yes
           </label>
 
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
               value="no"
               {...register('attending', {
                 setValueAs: (v) => v === 'yes',
               })}
+              className="accent-[var(--color-primary)]"
             />
             No
           </label>
@@ -65,45 +69,45 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
 
       {/* Guests */}
       {guest.plus_one_allowed && (
-        <div>
-          <label className="block font-medium mb-2">Number of guests</label>
+        <div className="form-group">
+          <label className="label">Number of guests</label>
 
           <input
             type="number"
             min={1}
             max={guest.max_guests}
             {...register('guest_count', { valueAsNumber: true })}
-            className="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+            className="input"
           />
         </div>
       )}
 
       {/* Dietary */}
-      <div>
-        <label className="block font-medium mb-2">Dietary requirements</label>
+      <div className="form-group">
+        <label className="label">Dietary requirements</label>
 
         <textarea
           {...register('dietary_requirements')}
           rows={3}
-          className="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="textarea"
         />
       </div>
 
       {/* Message */}
-      <div>
-        <label className="block font-medium mb-2">Message</label>
+      <div className="form-group">
+        <label className="label">Message</label>
 
         <textarea
           {...register('message')}
           rows={3}
-          className="w-full border border-neutral-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-400"
+          className="textarea"
         />
       </div>
 
       {/* Submit */}
       <button
         type="submit"
-        className="w-full bg-neutral-900 text-white py-3 rounded-lg hover:bg-neutral-800 transition"
+        className="btn btn-primary w-full"
       >
         Submit RSVP
       </button>

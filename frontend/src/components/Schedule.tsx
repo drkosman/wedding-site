@@ -1,24 +1,25 @@
 export default function Schedule() {
+  const events = [
+    ['3:00 PM', 'Ceremony'],
+    ['4:00 PM', 'Drinks Reception'],
+    ['6:00 PM', 'Dinner'],
+    ['8:00 PM', 'Dancing'],
+  ];
   return (
-    <section className="py-24 px-6 bg-white text-center">
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-3xl font-serif mb-4">Schedule</h2>
+    <section className="section bg-white text-center">
+      <div className="container-page max-w-2xl">
+        <h2 className="text-3xl font-semibold mb-6">Schedule</h2>
 
-        <div className="w-24 h-px bg-neutral-300 mx-auto mb-12" />
+        <div className="w-20 h-px mx-auto mb-14 bg-primary/40 rounded-full" />
 
-        <div className="space-y-6">
-          {[
-            ['3:00 PM', 'Ceremony'],
-            ['4:00 PM', 'Drinks Reception'],
-            ['6:00 PM', 'Dinner'],
-            ['8:00 PM', 'Dancing'],
-          ].map(([time, event]) => (
-            <div key={time} className="flex items-center justify-center gap-6">
-              <span className="font-semibold w-24 text-right">{time}</span>
+        <div className="space-y-8">
+          {events.map(([time, event]) => (
+            <div key={time} className="relative flex justify-between items-center">
+              <span className="w-1/2 text-right pr-8 font-semibold">{time}</span>
 
-              <div className="w-2 h-2 rounded-full bg-neutral-400" />
+              <div className="w-3 h-3 rounded-full bg-primary absolute left-1/2 -translate-x-1/2" />
 
-              <span className="w-40 text-left">{event}</span>
+              <span className="w-1/2 text-left pl-8 text-muted-foreground">{event}</span>
             </div>
           ))}
         </div>
