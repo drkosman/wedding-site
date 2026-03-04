@@ -164,3 +164,13 @@
     @apply space-y-2;
   }
 }
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.esri-attribution {
+  display: none !important;
+}

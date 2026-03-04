@@ -4,6 +4,7 @@ import io
 from fastapi import APIRouter, Depends, UploadFile, File
 from sqlmodel import Session, select
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 
 from app.database import get_session
 from app.models import Guest, GuestRequest, RSVP
@@ -134,3 +135,32 @@ def bulk_upload_guests(
     session.commit()
 
     return {"created": created}
+
+
+@router.get("/summary")
+def admin_summary(
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    total_guests = session.exec(
+        select(func.count()).select_from(Guest)
+    ).one()
+
+    total_rsvps = session.exec(
+        select(func.count()).select_from(RSVP)
+    ).one()
+
+    attending_count = session.exec(
+        select(func.count()).where(RSVP.attending == True)
+    ).one()
+
+    not_attending_count = session.exec(
+        select(func.count()).where(RSVP.attending == False)
+    ).one()
+
+    return {
+        "total_guests": total_guests,
+        "total_rsvps": total_rsvps,
+        "attending": attending_count,
+        "not_attending": not_attending_count,
+    }
