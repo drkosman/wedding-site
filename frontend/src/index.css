@@ -170,3 +170,7 @@ body {
   height: 100%;
   margin: 0;
 }
+
+.esri-attribution {
+  display: none !important;
+}
