@@ -38,7 +38,7 @@ export default function GettingThere() {
                 <a
                   href="https://maps.app.goo.gl/V42FP9toV2imMUzV7"
                   target="_blank"
-                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline"
+                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline m-auto"
                 >
                   Ceremony: St John's Scottish Episcopal Cathedral
                 </a>
@@ -47,7 +47,7 @@ export default function GettingThere() {
                 <a
                   href="https://maps.app.goo.gl/bg8bxSFaJbG3RMYt5"
                   target="_blank"
-                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline"
+                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline m-auto"
                 >
                   Reception: Barnacarry Bay
                 </a>

@@ -7,9 +7,9 @@ from sqlmodel import Session, select
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 
-from app.database import get_session
-from app.models import Guest, GuestRequest, InviteSentRequest, RSVP
-from app.routers.utils import verify_admin
+from ..database import get_session
+from ..models import Guest, GuestRequest, InviteSentRequest, RSVP
+from .utils import verify_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 

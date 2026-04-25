@@ -1,3 +1,4 @@
+# Local development only. Production deployment uses Vercel + Neon.
 services:
   db:
     image: postgres:16

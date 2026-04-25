@@ -5,10 +5,13 @@ Single-page wedding website with token-based RSVP links, a FastAPI backend, and 
 ## Stack
 
 - Frontend: React, TypeScript, Vite, Tailwind CSS
-- Backend: FastAPI, SQLModel, PostgreSQL in Docker, SQLite fallback for local development
+- Backend: FastAPI, SQLModel, PostgreSQL
 - Map: ArcGIS web components and ArcGIS JS API
 
-## Local Setup
+## Local Development
+
+`docker-compose.yaml` is for local development only.
+Production deployment uses Vercel (frontend + serverless API) and Neon (Postgres).
 
 1. Copy environment examples:
 
@@ -23,8 +26,7 @@ Single-page wedding website with token-based RSVP links, a FastAPI backend, and 
    docker compose up -d db
    ```
 
-   See [docs/dev-database.md](docs/dev-database.md) for full dev database
-   deployment, verification, seeding, and reset instructions.
+   See [docs/dev-database.md](docs/dev-database.md) for full dev database deployment and reset instructions.
 
 3. Run the backend:
 
@@ -42,7 +44,24 @@ Single-page wedding website with token-based RSVP links, a FastAPI backend, and 
    npm run dev
    ```
 
-The frontend defaults to `http://localhost:8000/api`. Override it with `VITE_API_BASE_URL`.
+The frontend defaults to `http://localhost:8000/api`.
+
+## Local Environment Variables
+
+`backend/.env`
+
+```bash
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/wedding
+ADMIN_SECRET=replace-me
+DEV_MODE=true
+CORS_ORIGINS=http://localhost:5173
+```
+
+`frontend/.env`
+
+```bash
+VITE_API_URL=http://localhost:8000/api
+```
 
 ## RSVP Links
 
@@ -60,13 +79,18 @@ Open the site with `?token=<printed-token>` appended to the frontend URL.
 
 Admin endpoints require the `x-admin-secret` header matching `ADMIN_SECRET`.
 
-The admin dashboard at `/admin` asks for this same `ADMIN_SECRET`. Keep it in `backend/.env` for local development or in your backend host's environment variables for deployment. Do not expose it as a `VITE_` frontend variable, because Vite variables are bundled into public browser code.
+- `POST /api/admin/guest`
+- `GET /api/admin/guests`
+- `POST /api/admin/guests/bulk`
+- `GET /api/admin/guests/export`
+- `GET /api/admin/summary`
+- `PATCH /api/admin/guest/{guest_id}/invite-sent`
 
-- `POST /admin/guest`
-- `GET /admin/guests`
-- `POST /admin/guests/bulk`
-- `GET /admin/guests/export`
-- `GET /admin/summary`
+Public RSVP endpoints:
+
+- `GET /api/guest/{token}`
+- `POST /api/rsvp/{token}`
+- `GET /api/health`
 
 ## Checks
 
@@ -80,35 +104,30 @@ cd ..
 backend/venv/bin/python -m unittest discover -s backend/tests
 ```
 
-## Deployment
+## Deployment (Vercel + Neon)
 
-The app is split into a static frontend and a FastAPI backend.
+This repository deploys as:
 
-### Frontend on Vercel
+- Frontend static app from `frontend/dist`
+- FastAPI serverless function entrypoint at `api/index.py`
+- Rewrites configured in root `vercel.json`
 
-Deploy the `frontend` directory as a Vercel Vite project.
-
-Set this Vercel environment variable:
-
-```bash
-VITE_API_BASE_URL=https://your-backend.example.com/api
-```
-
-`frontend/vercel.json` rewrites all paths to `index.html` so the SPA can be refreshed on any route.
-
-### Backend
-
-Deploy the FastAPI backend anywhere that can run a Python web service. Required environment variables:
+### Required Vercel Environment Variables
 
 ```bash
-DATABASE_URL=postgresql+psycopg://...
-ADMIN_SECRET=replace-me
+DATABASE_URL=postgresql+psycopg://neondb_owner:<pw>@ep-morning-sun-a9atitjc-pooler.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require
+CORS_ORIGINS=https://your-vercel-domain.vercel.app
 DEV_MODE=false
-CORS_ORIGINS=https://your-vercel-app.vercel.app,https://your-custom-domain.com
+VITE_API_URL=/api
+ADMIN_SECRET=replace-me
 ```
 
-For local development, keep `DEV_MODE=true`, run Postgres via Docker, and use `http://localhost:5173` in `CORS_ORIGINS`.
+### Database Table Setup (Neon)
 
-### Database
+Run this command against your Neon database URL to create/update tables:
 
-The code expects a standard Postgres URL in `DATABASE_URL`; there is no provider-specific database code in the app. Neon is a good fit for this project because it is serverless Postgres and has a free tier suitable for small RSVP workloads. For serverless or bursty hosting, use Neon's pooled connection string when available.
+```bash
+DATABASE_URL="postgresql+psycopg:///neondb_owner:<Password>@ep-morning-sun-a9atitjc.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require" python -m backend.create_tables
+```
+
+This project does not currently include Alembic migrations, so `create_tables` is the deployment setup path.
