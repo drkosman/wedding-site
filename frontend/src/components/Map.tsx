@@ -11,14 +11,26 @@ import { CONTOUR_URLS } from './Map/constants';
 import MapView from '@arcgis/core/views/MapView';
 import Graphic from '@arcgis/core/Graphic';
 
+const VENUE = {
+  lon: -5.544167,
+  lat: 56.346063,
+};
+
+type ExaggeratedGroundLayer = {
+  exaggeration: number;
+};
+
 export default function AppMap() {
   const sceneRef = useRef<HTMLArcgisSceneElement | null>(null);
   const overviewRef = useRef<HTMLDivElement | null>(null);
-  const lon = -5.544167;
-  const lat = 56.346063;
+
   useEffect(() => {
     const sceneEl = sceneRef.current;
-    if (!sceneEl) return;
+    const overviewEl = overviewRef.current;
+    if (!sceneEl || !overviewEl) return;
+
+    let cancelled = false;
+    let removeRipples: (() => void) | undefined;
 
     const overviewMap = new Map({
       basemap: {
@@ -29,10 +41,10 @@ export default function AppMap() {
     });
 
     const overviewView = new MapView({
-      container: overviewRef.current!,
+      container: overviewEl,
       map: overviewMap,
 
-      center: [lon, lat],
+      center: [VENUE.lon, VENUE.lat],
       zoom: 4,
       ui: { components: [] },
     });
@@ -41,8 +53,8 @@ export default function AppMap() {
       new Graphic({
         geometry: {
           type: 'point',
-          longitude: lon,
-          latitude: lat,
+          longitude: VENUE.lon,
+          latitude: VENUE.lat,
         },
         symbol: {
           type: 'simple-marker',
@@ -67,9 +79,13 @@ export default function AppMap() {
     sceneEl.map = scene;
 
     sceneEl.viewOnReady().then(() => {
+      if (cancelled) {
+        return;
+      }
+
       // Fly to Oban
       sceneEl.view.goTo({
-        center: [lon, lat],
+        center: [VENUE.lon, VENUE.lat],
         zoom: 15,
         tilt: 65,
       });
@@ -98,11 +114,11 @@ export default function AppMap() {
 
       scene.ground.surfaceColor = '#000000';
 
-      scene.ground.layers.forEach((layer: any) => {
-        layer.exaggeration = 3;
+      scene.ground.layers.forEach((layer) => {
+        (layer as unknown as ExaggeratedGroundLayer).exaggeration = 3;
       });
 
-      CONTOUR_URLS.map((URL) => {
+      CONTOUR_URLS.forEach((URL) => {
         const contours = new FeatureLayer({
           url: URL,
           elevationInfo: { mode: 'on-the-ground' },
@@ -119,15 +135,15 @@ export default function AppMap() {
       });
 
       const obanPoint = new Point({
-        longitude: lon,
-        latitude: lat,
+        longitude: VENUE.lon,
+        latitude: VENUE.lat,
       });
 
       const pin = new Graphic({
         geometry: {
           type: 'point',
-          longitude: lon,
-          latitude: lat,
+          longitude: VENUE.lon,
+          latitude: VENUE.lat,
           z: 0,
         },
         symbol: {
@@ -141,8 +157,7 @@ export default function AppMap() {
               depth: 75,
               material: {
                 color: [255, 215, 0, 25],
-                  emissive: { strength: 4, source: "color" },
-
+                emissive: { strength: 4, source: 'color' },
               },
             },
           ],
@@ -155,14 +170,19 @@ export default function AppMap() {
 
       sceneEl.view.graphics.add(pin);
 
-      concentricRipples(scene, obanPoint);
+      removeRipples = concentricRipples(scene, obanPoint);
     });
+
+    return () => {
+      cancelled = true;
+      removeRipples?.();
+      overviewView.destroy();
+    };
   }, []);
 
   return (
     <section className="section bg-secondary text-center">
       <div className="w-full h-[500px] relative">
-        {/* @ts-ignore */}
         <arcgis-scene
           ref={sceneRef}
           style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}

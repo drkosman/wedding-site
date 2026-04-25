@@ -2,7 +2,7 @@ import RSVPForm from './RSVPForm';
 import { useGuest } from '../hooks/useGuest';
 
 export default function RSVPSection() {
-  const { guest, token, loading } = useGuest();
+  const { guest, token, loading, error } = useGuest();
 
   return (
     <section className="section bg-white text-center">
@@ -21,7 +21,7 @@ export default function RSVPSection() {
 
         {!loading && !guest && (
           <p className="text-muted-foreground">
-            Please use your personal RSVP link from the invitation.
+            {error ?? 'Please use your personal RSVP link from the invitation.'}
           </p>
         )}
 

@@ -4,7 +4,6 @@ import Graphic from '@arcgis/core/Graphic';
 import GraphicsLayer from '@arcgis/core/layers/GraphicsLayer';
 import Color from '@arcgis/core/Color';
 import type WebScene from '@arcgis/core/WebScene';
-import type SimpleFillSymbol from '@arcgis/core/symbols/SimpleFillSymbol';
 
 export function concentricRipples(scene: WebScene, center: Point) {
   const layer = new GraphicsLayer();
@@ -36,7 +35,6 @@ export function concentricRipples(scene: WebScene, center: Point) {
           width: 2,
         },
       },
-      elevationInfo: { mode: 'on-the-ground' },
     });
 
     layer.add(graphic);
