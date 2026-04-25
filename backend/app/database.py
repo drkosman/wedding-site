@@ -2,7 +2,7 @@ from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, create_engine, Session
 from uuid import uuid4
 
-from app.config import DATABASE_URL, IS_DEV 
+from .config import DATABASE_URL, IS_DEV
 
 BOOLEAN_DEFAULT_FALSE = {
     "sunday_event",

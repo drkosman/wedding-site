@@ -41,9 +41,7 @@ docker compose exec db pg_isready -U postgres -d wedding
 Create or update the application tables by running backend startup locally:
 
 ```bash
-cd backend
-source venv/bin/activate
-python -c "from app.database import create_db_and_tables; create_db_and_tables()"
+python -m backend.create_tables
 ```
 
 You can also create the tables by starting the backend normally:
@@ -82,9 +80,7 @@ To remove all local Postgres data and redeploy from scratch:
 ```bash
 docker compose down -v
 docker compose up -d db
-cd backend
-source venv/bin/activate
-python -c "from app.database import create_db_and_tables; create_db_and_tables()"
+python -m backend.create_tables
 ```
 
 This deletes the `postgres_data` Docker volume, so only use it for disposable

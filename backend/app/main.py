@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import create_db_and_tables
-from app.routers import rsvp, admin
-from app.config import CORS_ORIGINS, IS_DEV
+from .database import create_db_and_tables
+from .routers import rsvp, admin
+from .config import CORS_ORIGINS, IS_DEV
 
 if IS_DEV:
     app = FastAPI(docs_url=None, redoc_url=None)
@@ -22,8 +22,8 @@ app.add_middleware(
 )
 
 app.include_router(rsvp.router, prefix="/api")
-app.include_router(admin.router)
+app.include_router(admin.router, prefix="/api")
 
-@app.get("/")
+@app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"ok": True}
