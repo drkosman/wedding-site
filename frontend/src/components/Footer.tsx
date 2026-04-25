@@ -1,13 +1,11 @@
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
     <footer className="section bg-secondary text-center">
       <div className="container-page">
-        <p className="text-sm font-medium">
-          Lucy & Kosta - 2026
-        </p>
-
-        <p className="mt-3 text-xs text-muted-foreground">
-          --- ❤️‍🔥❤️‍🔥❤️‍🔥 ---
+        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+          Map data and imagery attribution: Powered by Esri. Copyright Kosta Manser {year}.
         </p>
       </div>
     </footer>

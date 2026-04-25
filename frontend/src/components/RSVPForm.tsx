@@ -37,178 +37,193 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
     }
   };
 
+  if (status === 'saved') {
+    return (
+      <div className="mx-auto w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-white p-6 text-center shadow-[0_18px_50px_rgba(43,47,56,0.12)] sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">
+          RSVP received
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-foreground md:text-3xl">
+          Response received, thank you.
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+          Thanks {guest.name}. We have saved your RSVP.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
-      className="card max-w-md mx-auto space-y-8"
+      className="mx-auto w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-white p-5 text-left shadow-[0_18px_50px_rgba(43,47,56,0.12)] sm:p-8"
     >
-      <h2 className="text-2xl font-semibold text-center">
-        RSVP for {guest.name}
-      </h2>
-
-      {/* Attending */}
-      <div className="space-y-3 text-center">
-        <p className="font-medium">Will you be attending?</p>
-
-        <div className="flex justify-center gap-10">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              value="yes"
-              {...register('attending')}
-              className="accent-[var(--color-primary)]"
-            />
-            Yes
-          </label>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              value="no"
-              {...register('attending')}
-              className="accent-[var(--color-primary)]"
-            />
-            No
-          </label>
-        </div>
+      <div className="mb-8 border-b border-[var(--color-border)] pb-6 text-center">
+        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">
+          Personal RSVP
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-foreground md:text-3xl">
+          RSVP for {guest.name}
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+          Let us know your plans, guests, and anything we should pass along to the venue.
+        </p>
       </div>
 
-      {/* Guests */}
-      {guest.plus_one_allowed && (
-        <div className="form-group">
-          <label className="label">Number of guests</label>
+      <div className="space-y-8">
+        <fieldset className="space-y-3">
+          <legend className="text-base font-semibold text-foreground">Will you be attending?</legend>
 
-          <input
-            type="number"
-            min={1}
-            max={guest.max_guests}
-            {...register('guest_count', { valueAsNumber: true })}
-            className="input"
-          />
-        </div>
-      )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="group cursor-pointer">
+              <input type="radio" value="yes" {...register('attending')} className="peer sr-only" />
+              <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                Yes, I will be there
+                <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-xs text-transparent transition">
+                  ✓
+                </span>
+              </span>
+            </label>
 
-      <div className="space-y-3 text-center">
-        <p className="font-medium">Will you join us on Sunday?</p>
+            <label className="group cursor-pointer">
+              <input type="radio" value="no" {...register('attending')} className="peer sr-only" />
+              <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                Sorry, I cannot make it
+                <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-xs text-transparent transition">
+                  ✓
+                </span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
 
-        <div className="flex justify-center gap-10">
-          <label className="flex items-center gap-2 cursor-pointer">
+        {guest.plus_one_allowed && (
+          <div className="form-group">
+            <label className="label text-base" htmlFor="guest-count">
+              Number of guests
+            </label>
+            <p className="text-sm text-muted-foreground">
+              Your invitation allows up to {guest.max_guests} guests.
+            </p>
             <input
-              type="radio"
-              value="yes"
-              {...register('sunday_event')}
-              className="accent-[var(--color-primary)]"
+              id="guest-count"
+              type="number"
+              min={1}
+              max={guest.max_guests}
+              {...register('guest_count', { valueAsNumber: true })}
+              className="input h-12 max-w-40 text-base"
             />
-            Yes
-          </label>
+          </div>
+        )}
 
-          <label className="flex items-center gap-2 cursor-pointer">
+        <fieldset className="space-y-3">
+          <legend className="text-base font-semibold text-foreground">Will you join us on Sunday?</legend>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="cursor-pointer">
+              <input type="radio" value="yes" {...register('sunday_event')} className="peer sr-only" />
+              <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                Yes, count me in
+                <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-xs text-transparent transition">
+                  ✓
+                </span>
+              </span>
+            </label>
+
+            <label className="cursor-pointer">
+              <input type="radio" value="no" {...register('sunday_event')} className="peer sr-only" />
+              <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                No Sunday plans
+                <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border)] text-xs text-transparent transition">
+                  ✓
+                </span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
+          <label className="flex cursor-pointer items-start gap-3">
             <input
-              type="radio"
-              value="no"
-              {...register('sunday_event')}
-              className="accent-[var(--color-primary)]"
+              type="checkbox"
+              {...register('hotel_reservation_requested')}
+              className="mt-1 h-5 w-5 accent-[var(--color-primary-hover)]"
             />
-            No
-          </label>
-        </div>
-      </div>
-
-      <div className="form-group text-left">
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            {...register('hotel_reservation_requested')}
-            className="mt-1 accent-[var(--color-primary)]"
-          />
-          <span>
-            <span className="block font-medium">Request help with a hotel reservation</span>
-            <span className="block text-sm text-muted-foreground">
-              Rooms may be needed for the full weekend or just part of it.
+            <span>
+              <span className="block font-semibold text-foreground">
+                Request help with a hotel reservation
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">
+                Rooms may be needed for the full weekend or just part of it.
+              </span>
             </span>
-          </span>
-        </label>
-      </div>
-
-      <fieldset className="form-group text-left">
-        <legend className="label">Which room nights are you interested in?</legend>
-
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register('friday_night')}
-              className="accent-[var(--color-primary)]"
-            />
-            Friday 30 April 2027
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register('saturday_night')}
-              className="accent-[var(--color-primary)]"
-            />
-            Saturday 1 May 2027
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              {...register('sunday_night')}
-              className="accent-[var(--color-primary)]"
-            />
-            Sunday 2 May 2027
           </label>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          Monday 3 May 2027 is the checkout date for Sunday-night stays.
-        </p>
-      </fieldset>
+        <fieldset className="form-group">
+          <legend className="label text-base">Which room nights are you interested in?</legend>
 
-      {/* Dietary */}
-      <div className="form-group">
-        <label className="label">Dietary requirements</label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ['friday_night', 'Friday', '1 May 2026'],
+              ['saturday_night', 'Saturday', '2 May 2026'],
+              ['sunday_night', 'Sunday', '3 May 2026'],
+            ].map(([fieldName, day, date]) => (
+              <label key={fieldName} className="cursor-pointer">
+                <input
+                  type="checkbox"
+                  {...register(fieldName as 'friday_night' | 'saturday_night' | 'sunday_night')}
+                  className="peer sr-only"
+                />
+                <span className="block rounded-lg border border-[var(--color-border)] bg-white p-4 transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                  <span className="block font-semibold text-foreground">{day}</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">{date}</span>
+                </span>
+              </label>
+            ))}
+          </div>
 
-        <textarea
-          {...register('dietary_requirements')}
-          rows={3}
-          className="textarea"
-        />
+          <p className="text-sm text-muted-foreground">
+            Monday 4 May 2026 is the checkout date for Sunday-night stays.
+          </p>
+        </fieldset>
+
+        <div className="form-group">
+          <label className="label text-base" htmlFor="dietary-requirements">
+            Dietary requirements
+          </label>
+          <textarea
+            id="dietary-requirements"
+            {...register('dietary_requirements')}
+            rows={4}
+            className="textarea text-base"
+            placeholder="Allergies, dietary needs, or anything the caterers should know."
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="label text-base" htmlFor="guest-message">
+            Message
+          </label>
+          <textarea
+            id="guest-message"
+            {...register('message')}
+            rows={4}
+            className="textarea text-base"
+            placeholder="Send us a note, song request, or travel question."
+          />
+        </div>
+
+        <button type="submit" disabled={status === 'saving'} className="btn btn-primary h-12 w-full text-base">
+          {status === 'saving' ? 'Submitting...' : 'Submit RSVP'}
+        </button>
+
+        {status === 'error' && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+            Something went wrong. Please try again.
+          </p>
+        )}
       </div>
-
-      {/* Message */}
-      <div className="form-group">
-        <label className="label">Message</label>
-
-        <textarea
-          {...register('message')}
-          rows={3}
-          className="textarea"
-        />
-      </div>
-
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={status === 'saving'}
-        className="btn btn-primary w-full"
-      >
-        {status === 'saving' ? 'Submitting...' : 'Submit RSVP'}
-      </button>
-
-      {status === 'saved' && (
-        <p className="text-sm text-center text-muted-foreground">
-          RSVP submitted. Thank you!
-        </p>
-      )}
-
-      {status === 'error' && (
-        <p className="text-sm text-center text-red-700">
-          Something went wrong. Please try again.
-        </p>
-      )}
     </form>
   );
 }

@@ -1,15 +1,13 @@
 export default function Schedule() {
   const events = [
-    ['3:00 PM', 'Ceremony'],
-    ['4:00 PM', 'Drinks Reception'],
-    ['6:00 PM', 'Dinner'],
-    ['8:00 PM', 'Dancing'],
+    ['Saturday', 'Ceremony, Reception'],
+    ['Sunday', 'Sunday brunch (tbd)'],
   ];
   return (
     <section className="section bg-white text-center">
       <div className="container-page max-w-2xl">
         <h2 className="text-3xl font-semibold mb-6">Schedule</h2>
-
+        <h3 className="font-semibold mb-6">Further details coming soon...</h3>
         <div className="w-20 h-px mx-auto mb-14 bg-primary/40 rounded-full" />
 
         <div className="space-y-8">

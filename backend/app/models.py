@@ -11,6 +11,7 @@ class Guest(SQLModel, table=True):
     token: str = Field(default_factory=lambda: str(uuid4()), index=True, unique=True)
     plus_one_allowed: bool = False
     max_guests: int = 1
+    invite_sent: bool = False
     
     rsvp: Optional["RSVP"] = Relationship(back_populates="guest")
 
@@ -47,3 +48,7 @@ class GuestRequest(BaseModel):
     email: Optional[str] = None
     plus_one_allowed: bool = False
     max_guests: int = 1
+
+
+class InviteSentRequest(BaseModel):
+    invite_sent: bool

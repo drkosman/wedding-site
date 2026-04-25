@@ -20,6 +20,11 @@ type ExaggeratedGroundLayer = {
   exaggeration: number;
 };
 
+const removeMapAttribution = (view: MapView | HTMLArcgisSceneElement['view']) => {
+  view.attributionVisible = false;
+  view.ui.components = [];
+};
+
 export default function AppMap() {
   const sceneRef = useRef<HTMLArcgisSceneElement | null>(null);
   const overviewRef = useRef<HTMLDivElement | null>(null);
@@ -68,7 +73,7 @@ export default function AppMap() {
       }),
     );
 
-    overviewView.ui.components = [];
+    removeMapAttribution(overviewView);
 
     // Create and assign scene FIRST
     const scene = new WebScene({
@@ -99,7 +104,7 @@ export default function AppMap() {
         },
       };
 
-      sceneEl.view.ui.components = [];
+      removeMapAttribution(sceneEl.view);
 
       sceneEl.view.environment.lighting = {
         date: new Date('2024-12-01T08:00:00'),
@@ -182,9 +187,11 @@ export default function AppMap() {
 
   return (
     <section className="section bg-secondary text-center">
-      <div className="w-full h-[500px] relative">
+      <div className="container-page max-w-3xl py-0">
+        <div className="relative h-[360px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-black shadow-[0_10px_30px_rgba(0,0,0,0.08)] md:h-[500px]">
         <arcgis-scene
           ref={sceneRef}
+          hideAttribution
           style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
         />
 
@@ -192,6 +199,7 @@ export default function AppMap() {
           ref={overviewRef}
           className="absolute top-2 right-2 w-35 h-35 border border-white/40 rounded overflow-hidden bg-black"
         />
+        </div>
       </div>
     </section>
   );

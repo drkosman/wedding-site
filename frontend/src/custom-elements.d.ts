@@ -4,7 +4,7 @@ declare module 'react/jsx-runtime' {
   namespace JSX {
     interface IntrinsicElements {
       'arcgis-scene': DetailedHTMLProps<
-        HTMLAttributes<HTMLArcgisSceneElement>,
+        HTMLAttributes<HTMLArcgisSceneElement> & { hideAttribution?: boolean },
         HTMLArcgisSceneElement
       >;
     }
