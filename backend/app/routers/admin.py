@@ -54,6 +54,14 @@ def list_guests(
             "plus_one_allowed": guest.plus_one_allowed,
             "max_guests": guest.max_guests,
             "attending": rsvp.attending if rsvp else None,
+            "guest_count": rsvp.guest_count if rsvp else None,
+            "sunday_event": rsvp.sunday_event if rsvp else None,
+            "hotel_reservation_requested": (
+                rsvp.hotel_reservation_requested if rsvp else None
+            ),
+            "friday_night": rsvp.friday_night if rsvp else None,
+            "saturday_night": rsvp.saturday_night if rsvp else None,
+            "sunday_night": rsvp.sunday_night if rsvp else None,
             "dietary_requirements": rsvp.dietary_requirements if rsvp else None,
             "message": rsvp.message if rsvp else None,
             "updated_at": rsvp.updated_at if rsvp else None,
@@ -82,6 +90,12 @@ def export_guests_csv(
         "plus_one_allowed",
         "max_guests",
         "attending",
+        "guest_count",
+        "sunday_event",
+        "hotel_reservation_requested",
+        "friday_night",
+        "saturday_night",
+        "sunday_night",
         "dietary_requirements",
         "message",
         "updated_at",
@@ -95,6 +109,12 @@ def export_guests_csv(
             guest.plus_one_allowed,
             guest.max_guests,
             rsvp.attending if rsvp else "",
+            rsvp.guest_count if rsvp else "",
+            rsvp.sunday_event if rsvp else "",
+            rsvp.hotel_reservation_requested if rsvp else "",
+            rsvp.friday_night if rsvp else "",
+            rsvp.saturday_night if rsvp else "",
+            rsvp.sunday_night if rsvp else "",
             rsvp.dietary_requirements if rsvp else "",
             rsvp.message if rsvp else "",
             rsvp.updated_at if rsvp else "",
@@ -158,9 +178,19 @@ def admin_summary(
         select(func.count()).where(RSVP.attending == False)
     ).one()
 
+    sunday_count = session.exec(
+        select(func.count()).where(RSVP.sunday_event == True)
+    ).one()
+
+    hotel_request_count = session.exec(
+        select(func.count()).where(RSVP.hotel_reservation_requested == True)
+    ).one()
+
     return {
         "total_guests": total_guests,
         "total_rsvps": total_rsvps,
         "attending": attending_count,
         "not_attending": not_attending_count,
+        "sunday_event": sunday_count,
+        "hotel_reservation_requests": hotel_request_count,
     }
