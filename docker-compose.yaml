@@ -18,8 +18,12 @@ services:
     restart: always
     depends_on:
       - db
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/wedding
+      DEV_MODE: "true"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "8000:8000"
     volumes:
