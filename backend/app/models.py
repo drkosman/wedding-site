@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class Guest(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    email: str = Field(default=None, index=True)
+    email: Optional[str] = Field(default=None, index=True)
     token: str = Field(default_factory=lambda: str(uuid4()), index=True, unique=True)
     plus_one_allowed: bool = False
     max_guests: int = 1
@@ -19,8 +19,12 @@ class RSVP(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     guest_id: int = Field(foreign_key="guest.id", unique=True)
     attending: bool
-    sunday_event: bool
-    # guest_count: int = 1
+    sunday_event: bool = False
+    guest_count: int = Field(default=1, ge=1)
+    hotel_reservation_requested: bool = False
+    friday_night: bool = False
+    saturday_night: bool = False
+    sunday_night: bool = False
     dietary_requirements: Optional[str] = None
     message: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -29,7 +33,12 @@ class RSVP(SQLModel, table=True):
 
 class RSVPRequest(BaseModel):
     attending: bool
-    guest_count: int = 1
+    guest_count: int = Field(default=1, ge=1)
+    sunday_event: bool = False
+    hotel_reservation_requested: bool = False
+    friday_night: bool = False
+    saturday_night: bool = False
+    sunday_night: bool = False
     dietary_requirements: Optional[str] = None
     message: Optional[str] = None
     
