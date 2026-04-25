@@ -1,7 +1,7 @@
 import Hero from '../components/Hero';
 import Details from '../components/Details';
 import Schedule from '../components/Schedule';
-import Travel from '../components/Travel';
+import Accomodation from '../components/Accomodation';
 import GettingThere from '../components/GettingThere';
 import RSVPSection from '../components/RSVPSection';
 import Footer from '../components/Footer';
@@ -11,12 +11,12 @@ export default function Home() {
   return (
     <div>
       <Hero />
-      <Map />
       <Details />
-      <Schedule />
-      <Travel />
-      <GettingThere />
       <RSVPSection />
+      <Map />
+      <Schedule />
+      <Accomodation />
+      <GettingThere />
       <Footer />
     </div>
   );

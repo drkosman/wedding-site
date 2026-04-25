@@ -52,14 +52,24 @@ export default function Hero() {
       {hasPhotos ? (
         <div className="absolute inset-0" aria-hidden="true">
           {heroPhotos.map((photo, index) => (
-            <img
+            <div
               key={photo.src}
-              src={photo.src}
-              alt=""
-              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
+              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
                 index === activePhotoIndex ? 'opacity-100' : 'opacity-0'
               }`}
-            />
+            >
+              <img
+                src={photo.src}
+                alt=""
+                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12),rgba(0,0,0,0.5))]" />
+              <img
+                src={photo.src}
+                alt=""
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            </div>
           ))}
         </div>
       ) : (
@@ -89,8 +99,8 @@ export default function Hero() {
             Barnacarry Bay
           </p>
 
-          <p className="mt-16 animate-pulse text-sm text-white/80 drop-shadow">
-            Scroll for details ↓
+          <p className="mt-16 animate-pulse text-md text-white/80 drop-shadow">
+            Scroll to RSVP ↓
           </p>
         </div>
       </div>

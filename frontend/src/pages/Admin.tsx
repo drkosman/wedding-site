@@ -21,8 +21,10 @@ type GuestRow = {
   id: number;
   name: string;
   email?: string | null;
+  token?: string | null;
   plus_one_allowed: boolean;
   max_guests: number;
+  invite_sent: boolean;
   attending?: boolean | null;
   guest_count?: number | null;
   sunday_event?: boolean | null;
@@ -33,6 +35,26 @@ type GuestRow = {
   dietary_requirements?: string | null;
   message?: string | null;
   updated_at?: string | null;
+};
+
+type NewGuestForm = {
+  name: string;
+  email: string;
+  plus_one_allowed: boolean;
+  max_guests: number;
+};
+
+type GuestEmail = {
+  subject: string;
+  text: string;
+  html: string;
+};
+
+const WEDDING_DATE = 'Friday, 1 May 2026';
+const WEDDING_LOCATION = 'Barnacarry Bay, Scotland';
+const EMAIL_PHOTO_PATHS = {
+  hero: '/email-photos/lucyandkosta.jpeg',
+  location: '/email-photos/barnacarry.jpeg',
 };
 
 function formatBoolean(value?: boolean | null) {
@@ -49,6 +71,149 @@ function formatDate(value?: string | null) {
   }).format(new Date(value));
 }
 
+function getRsvpLink(token?: string | null) {
+  if (!token) return null;
+  return `${window.location.origin}/?token=${encodeURIComponent(token)}`;
+}
+
+function getAssetUrl(path: string) {
+  return `${window.location.origin}${path}`;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function getFirstName(name: string) {
+  return name.trim().split(/\s+/)[0] || name;
+}
+
+function buildGuestEmail(guest: GuestRow): GuestEmail {
+  const link = getRsvpLink(guest.token);
+
+  if (!link) {
+    throw new Error(`Guest ${guest.id} is missing a personal RSVP token.`);
+  }
+
+  const firstName = getFirstName(guest.name);
+  const escapedFirstName = escapeHtml(firstName);
+  const escapedLink = escapeHtml(link);
+  const heroPhotoUrl = escapeHtml(getAssetUrl(EMAIL_PHOTO_PATHS.hero));
+  const locationPhotoUrl = escapeHtml(getAssetUrl(EMAIL_PHOTO_PATHS.location));
+  const subject = 'Lucy & Kosta: Wedding RSVP';
+  const text = [
+    `Hi ${firstName},`,
+    '',
+    'We would love for you to join us as we celebrate our wedding.',
+    '',
+    `${WEDDING_DATE}`,
+    `${WEDDING_LOCATION}`,
+    'Ceremony at 3:00 PM',
+    '',
+    `Please RSVP using your personal link: ${link}`,
+    '',
+    'With love,',
+    'Lucy & Kosta',
+  ].join('\n');
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f0f1f7;color:#2b2f38;font-family:Georgia,'Times New Roman',serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Your personal RSVP link for Lucy and Kosta's wedding at Barnacarry Bay.
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f0f1f7;">
+      <tr>
+        <td align="center" style="padding:28px 12px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:640px;background:#ffffff;border:1px solid #e5e7eb;">
+            <tr>
+              <td>
+                <img src="${heroPhotoUrl}" width="640" alt="Lucy and Kosta" style="display:block;width:100%;max-width:640px;height:auto;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:40px 34px 28px;">
+                <p style="margin:0 0 12px;color:#608296;font-family:Arial,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Wedding Invitation</p>
+                <h1 style="margin:0;color:#2b2f38;font-size:38px;line-height:1.15;font-weight:400;">Lucy &amp; Kosta</h1>
+                <p style="margin:18px 0 0;color:#6b7280;font-family:Arial,sans-serif;font-size:16px;line-height:1.7;">${escapeHtml(WEDDING_DATE)}<br>${escapeHtml(WEDDING_LOCATION)}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 34px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="border-top:1px solid #e5e7eb;line-height:1px;font-size:1px;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:30px 34px 10px;">
+                <p style="margin:0 0 18px;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">Hi ${escapedFirstName},</p>
+                <p style="margin:0 0 18px;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">We would love for you to join us as we celebrate our wedding on the west coast of Scotland.</p>
+                <p style="margin:0;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">The ceremony will begin at <strong>3:00 PM</strong>, followed by drinks, dinner, and dancing by the bay.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 34px;">
+                <img src="${locationPhotoUrl}" width="572" alt="Barnacarry Bay" style="display:block;width:100%;max-width:572px;height:auto;border:0;">
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 34px 36px;">
+                <p style="margin:0 0 22px;color:#6b7280;font-family:Arial,sans-serif;font-size:15px;line-height:1.7;">Please RSVP through your personal link so we can confirm your details.</p>
+                <a href="${escapedLink}" style="display:inline-block;background:#608296;color:#ffffff;text-decoration:none;font-family:Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:.3px;padding:14px 24px;border-radius:4px;">RSVP Here</a>
+                <p style="margin:24px 0 0;color:#6b7280;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;">If the button does not work, copy this link:<br><a href="${escapedLink}" style="color:#608296;text-decoration:underline;">${escapedLink}</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:28px 34px 38px;background:#f6e7d7;">
+                <p style="margin:0;color:#2b2f38;font-family:Arial,sans-serif;font-size:16px;line-height:1.7;">With love,<br><strong>Lucy &amp; Kosta</strong></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+function downloadFile(filename: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function createEmailExport(guest: GuestRow) {
+  const email = buildGuestEmail(guest);
+
+  return [
+    `<!-- To: ${escapeHtml(guest.email || 'No email on file')} -->`,
+    `<!-- Subject: ${escapeHtml(email.subject)} -->`,
+    email.html,
+  ].join('\n');
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(() => getStoredAdminSecret());
   const [secretInput, setSecretInput] = useState('');
@@ -56,11 +221,25 @@ export default function Admin() {
   const [guests, setGuests] = useState<GuestRow[]>([]);
   const [loading, setLoading] = useState(Boolean(secret));
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [updatingInviteSentIds, setUpdatingInviteSentIds] = useState<Set<number>>(() => new Set());
+  const [newGuest, setNewGuest] = useState<NewGuestForm>({
+    name: '',
+    email: '',
+    plus_one_allowed: false,
+    max_guests: 1,
+  });
+  const [addingGuest, setAddingGuest] = useState(false);
 
   const responseRate = useMemo(() => {
     if (!summary?.total_guests) return '0%';
     return `${Math.round((summary.total_rsvps / summary.total_guests) * 100)}%`;
   }, [summary]);
+
+  const inviteSentCount = useMemo(
+    () => guests.filter((guest) => guest.invite_sent).length,
+    [guests],
+  );
 
   useEffect(() => {
     if (!secret) return;
@@ -83,12 +262,23 @@ export default function Admin() {
       .finally(() => setLoading(false));
   }, [secret]);
 
+  const refreshDashboard = async () => {
+    const [summaryResponse, guestsResponse] = await Promise.all([
+      adminApi.get<AdminSummary>('/summary', { headers: adminHeaders(secret) }),
+      adminApi.get<GuestRow[]>('/guests', { headers: adminHeaders(secret) }),
+    ]);
+
+    setSummary(summaryResponse.data);
+    setGuests(guestsResponse.data);
+  };
+
   const handleUnlock = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedSecret = secretInput.trim();
     if (!trimmedSecret) return;
 
     setError(null);
+    setNotice(null);
     setLoading(true);
     storeAdminSecret(trimmedSecret);
     setSecret(trimmedSecret);
@@ -100,6 +290,48 @@ export default function Admin() {
     setSecret('');
     setSummary(null);
     setGuests([]);
+    setNotice(null);
+    setError(null);
+  };
+
+  const handleAddGuest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = newGuest.name.trim();
+    const email = newGuest.email.trim();
+
+    if (!name) {
+      setError('Guest name is required.');
+      return;
+    }
+
+    setAddingGuest(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await adminApi.post(
+        '/guest',
+        {
+          name,
+          email: email || null,
+          plus_one_allowed: newGuest.plus_one_allowed,
+          max_guests: newGuest.max_guests,
+        },
+        { headers: adminHeaders(secret) },
+      );
+      await refreshDashboard();
+      setNewGuest({
+        name: '',
+        email: '',
+        plus_one_allowed: false,
+        max_guests: 1,
+      });
+      setNotice(`${name} was added to the guest list.`);
+    } catch {
+      setError('Guest could not be added. Please check the details and try again.');
+    } finally {
+      setAddingGuest(false);
+    }
   };
 
   const handleDownloadCsv = async () => {
@@ -121,6 +353,106 @@ export default function Admin() {
       URL.revokeObjectURL(url);
     } catch {
       setError('CSV export failed. Please try again.');
+    }
+  };
+
+  const handleInviteSentChange = async (guest: GuestRow, inviteSent: boolean) => {
+    setError(null);
+    setNotice(null);
+    setUpdatingInviteSentIds((current) => new Set(current).add(guest.id));
+    setGuests((currentGuests) =>
+      currentGuests.map((currentGuest) =>
+        currentGuest.id === guest.id ? { ...currentGuest, invite_sent: inviteSent } : currentGuest,
+      ),
+    );
+
+    try {
+      await adminApi.patch(
+        `/guest/${guest.id}/invite-sent`,
+        { invite_sent: inviteSent },
+        { headers: adminHeaders(secret) },
+      );
+    } catch {
+      setGuests((currentGuests) =>
+        currentGuests.map((currentGuest) =>
+          currentGuest.id === guest.id
+            ? { ...currentGuest, invite_sent: guest.invite_sent }
+            : currentGuest,
+        ),
+      );
+      setError(`Invite sent status could not be saved for ${guest.name}.`);
+    } finally {
+      setUpdatingInviteSentIds((current) => {
+        const nextIds = new Set(current);
+        nextIds.delete(guest.id);
+        return nextIds;
+      });
+    }
+  };
+
+  const handleCopyGuestEmail = async (guest: GuestRow) => {
+    setError(null);
+    setNotice(null);
+
+    try {
+      const email = buildGuestEmail(guest);
+
+      try {
+        if ('ClipboardItem' in window && navigator.clipboard.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': new Blob([email.html], { type: 'text/html' }),
+              'text/plain': new Blob([email.text], { type: 'text/plain' }),
+            }),
+          ]);
+        } else {
+          await navigator.clipboard.writeText(email.text);
+        }
+      } catch {
+        downloadFile(
+          `${guest.name.toLowerCase().replaceAll(' ', '-')}-email.html`,
+          createEmailExport(guest),
+          'text/html;charset=utf-8',
+        );
+        setNotice(`Clipboard was unavailable, so ${guest.name}'s email was downloaded.`);
+        return;
+      }
+
+      setNotice(`HTML email copied for ${guest.name}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email template could not be created.');
+    }
+  };
+
+  const handleDownloadGuestEmail = (guest: GuestRow) => {
+    try {
+      setError(null);
+      downloadFile(
+        `${guest.name.toLowerCase().replaceAll(' ', '-')}-email.html`,
+        createEmailExport(guest),
+        'text/html;charset=utf-8',
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email template could not be created.');
+    }
+  };
+
+  const handleDownloadBulkEmails = () => {
+    if (!guests.length) {
+      setError('No guests are available for email export yet.');
+      return;
+    }
+
+    try {
+      const content = guests
+        .map((guest) => createEmailExport(guest))
+        .join('\n\n<!-- Next guest email -->\n\n');
+
+      setError(null);
+      setNotice(`Exported ${guests.length} guest HTML emails.`);
+      downloadFile('guest-email-templates.html', content, 'text/html;charset=utf-8');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email templates could not be created.');
     }
   };
 
@@ -181,17 +513,24 @@ export default function Admin() {
                 >
                   Download CSV
                 </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadBulkEmails}
+                  className="btn btn-secondary"
+                  disabled={loading || guests.length === 0}
+                >
+                  Export All Emails
+                </button>
                 <button type="button" onClick={handleLogout} className="btn btn-secondary">
                   Lock
                 </button>
               </div>
             </header>
 
-            {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
-
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
               {[
                 ['Guests', summary?.total_guests ?? 0],
+                ['Invites Sent', inviteSentCount],
                 ['RSVPs', summary?.total_rsvps ?? 0],
                 ['Response Rate', responseRate],
                 ['Attending', summary?.attending ?? 0],
@@ -203,6 +542,97 @@ export default function Admin() {
                   <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
                 </article>
               ))}
+            </section>
+
+            {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
+            {notice && <p className="card border-green-200 text-sm text-green-700">{notice}</p>}
+            
+            <section className="card">
+              <div className="mb-5">
+                <h2 className="text-xl font-semibold">Add Guest</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a guest record and generate their personal RSVP link automatically.
+                </p>
+              </div>
+
+              <form onSubmit={handleAddGuest} className="grid gap-4 md:grid-cols-12 md:items-end">
+                <div className="form-group md:col-span-4">
+                  <label className="label" htmlFor="guest-name">
+                    Name
+                  </label>
+                  <input
+                    id="guest-name"
+                    type="text"
+                    value={newGuest.name}
+                    onChange={(event) =>
+                      setNewGuest((current) => ({ ...current, name: event.target.value }))
+                    }
+                    className="input"
+                    autoComplete="name"
+                  />
+                </div>
+
+                <div className="form-group md:col-span-4">
+                  <label className="label" htmlFor="guest-email">
+                    Email
+                  </label>
+                  <input
+                    id="guest-email"
+                    type="email"
+                    value={newGuest.email}
+                    onChange={(event) =>
+                      setNewGuest((current) => ({ ...current, email: event.target.value }))
+                    }
+                    className="input"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="form-group md:col-span-2">
+                  <label className="label" htmlFor="guest-max-guests">
+                    Party size
+                  </label>
+                  <input
+                    id="guest-max-guests"
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={newGuest.max_guests}
+                    onChange={(event) => {
+                      const maxGuests = Math.max(1, Number(event.target.value) || 1);
+                      setNewGuest((current) => ({
+                        ...current,
+                        max_guests: maxGuests,
+                        plus_one_allowed: maxGuests > 1,
+                      }));
+                    }}
+                    className="input"
+                  />
+                </div>
+
+                <label className="flex min-h-11 items-center gap-3 text-sm font-medium md:col-span-1">
+                  <input
+                    type="checkbox"
+                    checked={newGuest.plus_one_allowed}
+                    onChange={(event) =>
+                      setNewGuest((current) => ({
+                        ...current,
+                        plus_one_allowed: event.target.checked,
+                        max_guests: event.target.checked ? Math.max(current.max_guests, 2) : 1,
+                      }))
+                    }
+                  />
+                  Plus one
+                </label>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary md:col-span-1"
+                  disabled={addingGuest}
+                >
+                  {addingGuest ? 'Adding...' : 'Add'}
+                </button>
+              </form>
             </section>
 
             <section className="card overflow-hidden p-0">
@@ -218,6 +648,7 @@ export default function Admin() {
                   <thead className="bg-muted text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3">Guest</th>
+                      <th className="px-4 py-3">Invite Sent</th>
                       <th className="px-4 py-3">RSVP</th>
                       <th className="px-4 py-3">Party</th>
                       <th className="px-4 py-3">Sunday</th>
@@ -226,6 +657,7 @@ export default function Admin() {
                       <th className="px-4 py-3">Dietary</th>
                       <th className="px-4 py-3">Message</th>
                       <th className="px-4 py-3">Updated</th>
+                      <th className="px-4 py-3">Email</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border)]">
@@ -236,6 +668,19 @@ export default function Admin() {
                           <span className="block text-muted-foreground">
                             {guest.email ?? 'No email'}
                           </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={guest.invite_sent}
+                              disabled={updatingInviteSentIds.has(guest.id)}
+                              onChange={(event) =>
+                                handleInviteSentChange(guest, event.target.checked)
+                              }
+                            />
+                            <span>{guest.invite_sent ? 'Sent' : 'Not sent'}</span>
+                          </label>
                         </td>
                         <td className="px-4 py-4">{formatBoolean(guest.attending)}</td>
                         <td className="px-4 py-4">
@@ -259,6 +704,24 @@ export default function Admin() {
                         </td>
                         <td className="max-w-xs px-4 py-4">{guest.message || 'None'}</td>
                         <td className="px-4 py-4">{formatDate(guest.updated_at)}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-col gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyGuestEmail(guest)}
+                              className="btn btn-secondary whitespace-nowrap px-3 py-2"
+                            >
+                              Copy
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadGuestEmail(guest)}
+                              className="btn btn-outline whitespace-nowrap px-3 py-2"
+                            >
+                              Export
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -5,13 +5,19 @@ export default function RSVPSection() {
   const { guest, token, loading, error } = useGuest();
 
   return (
-    <section className="section bg-white text-center">
-      <div className="container-page max-w-3xl">
-        <h2 className="text-3xl font-semibold mb-6">
+    <section id="rsvp" className="section bg-white text-center">
+      <div className="container-page max-w-4xl">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">
+          Next step
+        </p>
+        <h2 className="mb-4 text-3xl font-semibold">
           RSVP
         </h2>
 
-        <div className="w-20 h-px mx-auto mb-12 bg-primary/40 rounded-full" />
+        <p className="mx-auto mb-10 max-w-2xl text-base text-muted-foreground">
+          Please complete your RSVP below so we can confirm numbers, accommodation interest,
+          and any dietary details.
+        </p>
 
         {loading && (
           <p className="text-muted-foreground">

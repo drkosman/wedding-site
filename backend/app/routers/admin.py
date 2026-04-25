@@ -1,13 +1,14 @@
 import csv
 import io
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlmodel import Session, select
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 
 from app.database import get_session
-from app.models import Guest, GuestRequest, RSVP
+from app.models import Guest, GuestRequest, InviteSentRequest, RSVP
 from app.routers.utils import verify_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -21,6 +22,7 @@ def create_guest(
     guest = Guest(
         name=payload.name,
         email=payload.email,
+        token=str(uuid4()),
         plus_one_allowed=payload.plus_one_allowed,
         max_guests=payload.max_guests,
     )
@@ -51,8 +53,10 @@ def list_guests(
             "id": guest.id,
             "name": guest.name,
             "email": guest.email,
+            "token": guest.token,
             "plus_one_allowed": guest.plus_one_allowed,
             "max_guests": guest.max_guests,
+            "invite_sent": guest.invite_sent,
             "attending": rsvp.attending if rsvp else None,
             "guest_count": rsvp.guest_count if rsvp else None,
             "sunday_event": rsvp.sunday_event if rsvp else None,
@@ -87,8 +91,10 @@ def export_guests_csv(
         "id",
         "name",
         "email",
+        "token",
         "plus_one_allowed",
         "max_guests",
+        "invite_sent",
         "attending",
         "guest_count",
         "sunday_event",
@@ -106,8 +112,10 @@ def export_guests_csv(
             guest.id,
             guest.name,
             guest.email,
+            guest.token,
             guest.plus_one_allowed,
             guest.max_guests,
+            guest.invite_sent,
             rsvp.attending if rsvp else "",
             rsvp.guest_count if rsvp else "",
             rsvp.sunday_event if rsvp else "",
@@ -131,6 +139,29 @@ def export_guests_csv(
     )
     
 
+@router.patch("/guest/{guest_id}/invite-sent")
+def update_guest_invite_sent(
+    guest_id: int,
+    payload: InviteSentRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    guest = session.get(Guest, guest_id)
+
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
+
+    guest.invite_sent = payload.invite_sent
+    session.add(guest)
+    session.commit()
+    session.refresh(guest)
+
+    return {
+        "id": guest.id,
+        "invite_sent": guest.invite_sent,
+    }
+
+
 @router.post("/guests/bulk")
 def bulk_upload_guests(
     file: UploadFile = File(...),
@@ -146,6 +177,7 @@ def bulk_upload_guests(
         guest = Guest(
             name=row["name"],
             email=row.get("email"),
+            token=str(uuid4()),
             plus_one_allowed=row.get("plus_one_allowed", "false").lower() == "true",
             max_guests=int(row.get("max_guests", 1)),
         )

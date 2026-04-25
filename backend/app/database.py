@@ -1,5 +1,6 @@
 from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, create_engine, Session
+from uuid import uuid4
 
 from app.config import DATABASE_URL, IS_DEV 
 
@@ -39,6 +40,33 @@ def ensure_guest_columns():
     ):
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE guest ALTER COLUMN email DROP NOT NULL"))
+
+    with engine.begin() as connection:
+        if "token" not in columns:
+            connection.execute(text("ALTER TABLE guest ADD COLUMN token VARCHAR"))
+
+        if "invite_sent" not in columns:
+            default = "false" if engine.dialect.name == "postgresql" else "0"
+            connection.execute(
+                text(
+                    "ALTER TABLE guest ADD COLUMN invite_sent "
+                    f"BOOLEAN NOT NULL DEFAULT {default}"
+                )
+            )
+
+        rows_missing_tokens = connection.execute(
+            text("SELECT id FROM guest WHERE token IS NULL OR token = ''")
+        ).all()
+
+        for row in rows_missing_tokens:
+            connection.execute(
+                text("UPDATE guest SET token = :token WHERE id = :id"),
+                {"token": str(uuid4()), "id": row.id},
+            )
+
+        connection.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_guest_token_unique ON guest (token)")
+        )
 
 
 def ensure_rsvp_columns():

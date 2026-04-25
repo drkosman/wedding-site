@@ -17,6 +17,7 @@
     "@esri/calcite-components": "^5.0.2",
     "axios": "^1.13.5",
     "leaflet": "^1.9.4",
+    "lucide-react": "^1.11.0",
     "maplibre-gl": "^5.18.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

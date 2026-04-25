@@ -151,7 +151,17 @@
     background-color: white;
   }
 
-  .input:focus {
+  .textarea {
+    @apply w-full rounded-md px-4 py-3 text-sm
+           transition focus:outline-none focus:ring-2;
+    min-height: 7rem;
+    resize: vertical;
+    border: 1px solid var(--color-border);
+    background-color: white;
+  }
+
+  .input:focus,
+  .textarea:focus {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(214, 92, 122, 0.2);
   }
@@ -162,6 +172,12 @@
 
   .form-group {
     @apply space-y-2;
+  }
+
+  .peer:checked + span .choice-indicator {
+    border-color: var(--color-primary-hover);
+    background-color: var(--color-primary-hover);
+    color: white;
   }
 }
 

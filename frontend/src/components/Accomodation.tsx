@@ -1,9 +1,9 @@
-export default function Travel() {
+export default function Accommodation() {
   return (
     <section className="section bg-secondary text-center">
       <div className="container-page max-w-2xl">
         <h2 className="text-3xl font-semibold mb-6">
-          Travel & Accommodation
+          Accommodation
         </h2>
 
         <div className="w-20 h-px mx-auto mb-14 bg-primary/40 rounded-full" />
