@@ -162,7 +162,7 @@ function buildGuestEmail(guest: GuestRow): GuestEmail {
               <td style="padding:30px 34px 10px;">
                 <p style="margin:0 0 18px;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">Hi ${escapedFirstName},</p>
                 <p style="margin:0 0 18px;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">We would love for you to join us as we celebrate our wedding on the west coast of Scotland.</p>
-                <p style="margin:0;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">The ceremony will begin at <strong>3:00 PM</strong>, followed by drinks, dinner, and dancing by the bay.</p>
+                <p style="margin:0;color:#2b2f38;font-family:Arial,sans-serif;font-size:17px;line-height:1.75;">The ceremony will be happening in <strong>Oban, Scotland</strong>, followed by drinks, dinner, and dancing by the bay.</p>
               </td>
             </tr>
             <tr>
