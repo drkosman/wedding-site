@@ -19,7 +19,7 @@ For local Docker Postgres, `backend/.env` should include:
 
 ```bash
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/wedding
-ADMIN_SECRET=gripp-streke-ARGUM
+ADMIN_SECRET=replace-me
 DEV_MODE=true
 CORS_ORIGINS=http://localhost:5173
 ```

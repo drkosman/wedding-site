@@ -115,11 +115,11 @@ This repository deploys as:
 ### Required Vercel Environment Variables
 
 ```bash
-DATABASE_URL=postgresql+psycopg://neondb_owner:npg_y3KHV4qpLFNx@ep-morning-sun-a9atitjc-pooler.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql+psycopg://neondb_owner:<pw>@ep-morning-sun-a9atitjc-pooler.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require
 CORS_ORIGINS=https://your-vercel-domain.vercel.app
 DEV_MODE=false
 VITE_API_URL=/api
-ADMIN_SECRET=gripp-streke-ARGUM
+ADMIN_SECRET=replace-me
 ```
 
 ### Database Table Setup (Neon)
@@ -127,7 +127,7 @@ ADMIN_SECRET=gripp-streke-ARGUM
 Run this command against your Neon database URL to create/update tables:
 
 ```bash
-DATABASE_URL="postgresql+psycopg:///neondb_owner:npg_y3KHV4qpLFNx@ep-morning-sun-a9atitjc.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require" python -m backend.create_tables
+DATABASE_URL="postgresql+psycopg:///neondb_owner:<Password>@ep-morning-sun-a9atitjc.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require" python -m backend.create_tables
 ```
 
 This project does not currently include Alembic migrations, so `create_tables` is the deployment setup path.
