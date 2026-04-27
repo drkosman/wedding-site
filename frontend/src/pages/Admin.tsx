@@ -7,6 +7,7 @@ import {
   getStoredAdminSecret,
   storeAdminSecret,
 } from '../api/adminClient';
+import ContentManager from '../components/admin/ContentManager';
 
 type AdminSummary = {
   total_guests: number;
@@ -68,6 +69,30 @@ const EMAIL_PHOTO_PATHS = {
   hero: '/email-photos/lucyandkosta.jpeg',
   location: '/email-photos/barnacarry.jpeg',
 };
+
+const scheduleFields = [
+  { key: 'date' as const, label: 'Date / Day', placeholder: 'Saturday' },
+  { key: 'time' as const, label: 'Time', placeholder: '3:00 PM' },
+  { key: 'title' as const, label: 'Title', placeholder: 'Ceremony' },
+  { key: 'location' as const, label: 'Location', placeholder: "St John's Cathedral" },
+  { key: 'description' as const, label: 'Description', type: 'textarea' as const },
+  { key: 'notes' as const, label: 'Notes', type: 'textarea' as const },
+];
+
+const accommodationFields = [
+  { key: 'title' as const, label: 'Name', placeholder: 'Hotel name' },
+  { key: 'website_url' as const, label: 'Website URL', type: 'url' as const },
+  { key: 'address' as const, label: 'Address' },
+  { key: 'price_notes' as const, label: 'Price / Rate Notes' },
+  { key: 'distance' as const, label: 'Distance' },
+  { key: 'notes' as const, label: 'Label / Notes', placeholder: 'Nearest town' },
+  { key: 'description' as const, label: 'Description', type: 'textarea' as const },
+];
+
+const travelFields = [
+  { key: 'title' as const, label: 'Title', placeholder: 'By train' },
+  { key: 'description' as const, label: 'Description', type: 'textarea' as const },
+];
 
 function formatBoolean(value?: boolean | null) {
   if (value === true) return 'Yes';
@@ -703,6 +728,28 @@ export default function Admin() {
 
             {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
             {notice && <p className="card border-green-200 text-sm text-green-700">{notice}</p>}
+
+            <div className="grid gap-8 xl:grid-cols-2">
+              <ContentManager
+                secret={secret}
+                kind="schedule"
+                title="Schedule Content"
+                fields={scheduleFields}
+              />
+              <ContentManager
+                secret={secret}
+                kind="accommodation"
+                title="Accommodation Content"
+                fields={accommodationFields}
+              />
+            </div>
+
+            <ContentManager
+              secret={secret}
+              kind="travel"
+              title="Travel Content"
+              fields={travelFields}
+            />
             
             <section className="card">
               <div className="mb-5">

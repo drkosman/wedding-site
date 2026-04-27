@@ -9,7 +9,17 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 
 from ..database import get_session
-from ..models import Guest, GuestRequest, InviteSentRequest, RSVP, RSVPRequest
+from ..models import (
+    ContentEntry,
+    ContentEntryRequest,
+    ContentReorderRequest,
+    Guest,
+    GuestRequest,
+    InviteSentRequest,
+    RSVP,
+    RSVPRequest,
+)
+from .content import list_content_entries, serialize_content_entry, validate_content_kind
 from .utils import verify_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -300,6 +310,153 @@ def bulk_upload_guests(
     session.commit()
 
     return {"created": created}
+
+
+def apply_content_payload(entry: ContentEntry, payload: ContentEntryRequest):
+    entry.title = payload.title
+    entry.description = payload.description
+    entry.date = payload.date
+    entry.time = payload.time
+    entry.location = payload.location
+    entry.notes = payload.notes
+    entry.address = payload.address
+    entry.price_notes = payload.price_notes
+    entry.distance = payload.distance
+    entry.website_url = payload.website_url
+    entry.updated_at = datetime.utcnow()
+
+    if payload.sort_order is not None:
+        entry.sort_order = payload.sort_order
+
+    return entry
+
+
+def next_content_sort_order(session: Session, kind: str) -> int:
+    current_max = session.exec(
+        select(func.max(ContentEntry.sort_order)).where(ContentEntry.kind == kind)
+    ).one()
+
+    return 0 if current_max is None else current_max + 1
+
+
+@router.get("/content/{kind}")
+def admin_list_content(
+    kind: str,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    return list_content_entries(kind, session)
+
+
+@router.post("/content/{kind}")
+def admin_create_content(
+    kind: str,
+    payload: ContentEntryRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    validate_content_kind(kind)
+    sort_order = (
+        payload.sort_order
+        if payload.sort_order is not None
+        else next_content_sort_order(session, kind)
+    )
+    entry = ContentEntry(kind=kind, sort_order=sort_order, title=payload.title)
+    apply_content_payload(entry, payload)
+    entry.sort_order = sort_order
+
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+
+    return serialize_content_entry(entry)
+
+
+@router.put("/content/{kind}/reorder")
+def admin_reorder_content(
+    kind: str,
+    payload: ContentReorderRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    validate_content_kind(kind)
+    entries = session.exec(
+        select(ContentEntry).where(ContentEntry.kind == kind)
+    ).all()
+    entries_by_id = {entry.id: entry for entry in entries}
+
+    if len(payload.ids) != len(set(payload.ids)):
+        raise HTTPException(status_code=400, detail="Duplicate content entry IDs are not allowed")
+
+    if len(payload.ids) != len(entries):
+        raise HTTPException(status_code=400, detail="Reorder list must include every entry")
+
+    missing_ids = [entry_id for entry_id in payload.ids if entry_id not in entries_by_id]
+    if missing_ids:
+        raise HTTPException(status_code=400, detail="Reorder list contains unknown entries")
+
+    for sort_order, entry_id in enumerate(payload.ids):
+        entry = entries_by_id[entry_id]
+        entry.sort_order = sort_order
+        entry.updated_at = datetime.utcnow()
+        session.add(entry)
+
+    session.commit()
+
+    return list_content_entries(kind, session)
+
+
+@router.put("/content/{kind}/{entry_id}")
+def admin_update_content(
+    kind: str,
+    entry_id: int,
+    payload: ContentEntryRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    validate_content_kind(kind)
+    entry = session.get(ContentEntry, entry_id)
+
+    if not entry or entry.kind != kind:
+        raise HTTPException(status_code=404, detail="Content entry not found")
+
+    apply_content_payload(entry, payload)
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+
+    return serialize_content_entry(entry)
+
+
+@router.delete("/content/{kind}/{entry_id}")
+def admin_delete_content(
+    kind: str,
+    entry_id: int,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    validate_content_kind(kind)
+    entry = session.get(ContentEntry, entry_id)
+
+    if not entry or entry.kind != kind:
+        raise HTTPException(status_code=404, detail="Content entry not found")
+
+    session.delete(entry)
+    session.commit()
+
+    remaining_entries = session.exec(
+        select(ContentEntry)
+        .where(ContentEntry.kind == kind)
+        .order_by(ContentEntry.sort_order, ContentEntry.id)
+    ).all()
+
+    for sort_order, remaining_entry in enumerate(remaining_entries):
+        remaining_entry.sort_order = sort_order
+        session.add(remaining_entry)
+
+    session.commit()
+
+    return {"status": "deleted"}
 
 
 @router.get("/summary")
