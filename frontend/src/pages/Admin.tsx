@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   adminApi,
@@ -48,6 +48,18 @@ type GuestEmail = {
   subject: string;
   text: string;
   html: string;
+};
+
+type EditableRsvpForm = {
+  attending: 'yes' | 'no';
+  guest_count: number;
+  sunday_event: 'yes' | 'no';
+  hotel_reservation_requested: boolean;
+  friday_night: boolean;
+  saturday_night: boolean;
+  sunday_night: boolean;
+  dietary_requirements: string;
+  message: string;
 };
 
 const WEDDING_DATE = 'Friday, 1 May 2026';
@@ -214,6 +226,20 @@ function createEmailExport(guest: GuestRow) {
   ].join('\n');
 }
 
+function createRsvpDraft(guest: GuestRow): EditableRsvpForm {
+  return {
+    attending: guest.attending === false ? 'no' : 'yes',
+    guest_count: guest.guest_count ?? 1,
+    sunday_event: guest.sunday_event ? 'yes' : 'no',
+    hotel_reservation_requested: guest.hotel_reservation_requested ?? false,
+    friday_night: guest.friday_night ?? false,
+    saturday_night: guest.saturday_night ?? false,
+    sunday_night: guest.sunday_night ?? false,
+    dietary_requirements: guest.dietary_requirements ?? '',
+    message: guest.message ?? '',
+  };
+}
+
 export default function Admin() {
   const [secret, setSecret] = useState(() => getStoredAdminSecret());
   const [secretInput, setSecretInput] = useState('');
@@ -223,6 +249,11 @@ export default function Admin() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [updatingInviteSentIds, setUpdatingInviteSentIds] = useState<Set<number>>(() => new Set());
+  const [editingGuestId, setEditingGuestId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<EditableRsvpForm | null>(null);
+  const [savingRsvpId, setSavingRsvpId] = useState<number | null>(null);
+  const [clearingRsvpId, setClearingRsvpId] = useState<number | null>(null);
+  const [deletingGuestId, setDeletingGuestId] = useState<number | null>(null);
   const [newGuest, setNewGuest] = useState<NewGuestForm>({
     name: '',
     email: '',
@@ -290,6 +321,8 @@ export default function Admin() {
     setSecret('');
     setSummary(null);
     setGuests([]);
+    setEditingGuestId(null);
+    setEditForm(null);
     setNotice(null);
     setError(null);
   };
@@ -453,6 +486,130 @@ export default function Admin() {
       downloadFile('guest-email-templates.html', content, 'text/html;charset=utf-8');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Email templates could not be created.');
+    }
+  };
+
+  const handleEditGuest = (guest: GuestRow) => {
+    setError(null);
+    setNotice(null);
+
+    if (editingGuestId === guest.id) {
+      setEditingGuestId(null);
+      setEditForm(null);
+      return;
+    }
+
+    setEditingGuestId(guest.id);
+    setEditForm(createRsvpDraft(guest));
+  };
+
+  const handleSaveRsvp = async (guest: GuestRow) => {
+    if (!editForm) return;
+
+    const guestCount = Math.max(1, Math.min(guest.max_guests, Number(editForm.guest_count) || 1));
+
+    if (guestCount > guest.max_guests) {
+      setError(`${guest.name} cannot exceed a party size of ${guest.max_guests}.`);
+      return;
+    }
+
+    setSavingRsvpId(guest.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await adminApi.put(
+        `/guest/${guest.id}/rsvp`,
+        {
+          attending: editForm.attending === 'yes',
+          guest_count: guestCount,
+          sunday_event: editForm.sunday_event === 'yes',
+          hotel_reservation_requested: editForm.hotel_reservation_requested,
+          friday_night: editForm.friday_night,
+          saturday_night: editForm.saturday_night,
+          sunday_night: editForm.sunday_night,
+          dietary_requirements: editForm.dietary_requirements.trim() || null,
+          message: editForm.message.trim() || null,
+        },
+        { headers: adminHeaders(secret) },
+      );
+      await refreshDashboard();
+      setEditingGuestId(null);
+      setEditForm(null);
+      setNotice(`Saved RSVP changes for ${guest.name}.`);
+    } catch (err: unknown) {
+      const message =
+        typeof err === 'object' &&
+        err !== null &&
+        'response' in err &&
+        typeof err.response === 'object' &&
+        err.response !== null &&
+        'data' in err.response &&
+        typeof err.response.data === 'object' &&
+        err.response.data !== null &&
+        'detail' in err.response.data &&
+        typeof err.response.data.detail === 'string'
+          ? err.response.data.detail
+          : `RSVP changes could not be saved for ${guest.name}.`;
+      setError(message);
+    } finally {
+      setSavingRsvpId(null);
+    }
+  };
+
+  const handleClearRsvp = async (guest: GuestRow) => {
+    if (!guest.updated_at && guest.attending == null) {
+      setError(`${guest.name} does not have an RSVP to clear.`);
+      return;
+    }
+
+    if (!window.confirm(`Clear ${guest.name}'s RSVP but keep them on the guest list?`)) {
+      return;
+    }
+
+    setClearingRsvpId(guest.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await adminApi.delete(`/guest/${guest.id}/rsvp`, {
+        headers: adminHeaders(secret),
+      });
+      await refreshDashboard();
+      if (editingGuestId === guest.id) {
+        setEditForm(createRsvpDraft({ ...guest, attending: null, guest_count: null, sunday_event: null, hotel_reservation_requested: null, friday_night: null, saturday_night: null, sunday_night: null, dietary_requirements: null, message: null }));
+      }
+      setNotice(`Cleared RSVP for ${guest.name}.`);
+    } catch {
+      setError(`RSVP could not be cleared for ${guest.name}.`);
+    } finally {
+      setClearingRsvpId(null);
+    }
+  };
+
+  const handleDeleteGuest = async (guest: GuestRow) => {
+    if (!window.confirm(`Delete ${guest.name} and their RSVP permanently?`)) {
+      return;
+    }
+
+    setDeletingGuestId(guest.id);
+    setError(null);
+    setNotice(null);
+
+    try {
+      await adminApi.delete(`/guest/${guest.id}`, {
+        headers: adminHeaders(secret),
+      });
+      await refreshDashboard();
+      if (editingGuestId === guest.id) {
+        setEditingGuestId(null);
+        setEditForm(null);
+      }
+      setNotice(`Deleted ${guest.name} from the guest list.`);
+    } catch {
+      setError(`${guest.name} could not be deleted.`);
+    } finally {
+      setDeletingGuestId(null);
     }
   };
 
@@ -658,72 +815,312 @@ export default function Admin() {
                       <th className="px-4 py-3">Message</th>
                       <th className="px-4 py-3">Updated</th>
                       <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border)]">
-                    {guests.map((guest) => (
-                      <tr key={guest.id} className="align-top">
-                        <td className="px-4 py-4">
-                          <span className="block font-medium">{guest.name}</span>
-                          <span className="block text-muted-foreground">
-                            {guest.email ?? 'No email'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <label className="inline-flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={guest.invite_sent}
-                              disabled={updatingInviteSentIds.has(guest.id)}
-                              onChange={(event) =>
-                                handleInviteSentChange(guest, event.target.checked)
-                              }
-                            />
-                            <span>{guest.invite_sent ? 'Sent' : 'Not sent'}</span>
-                          </label>
-                        </td>
-                        <td className="px-4 py-4">{formatBoolean(guest.attending)}</td>
-                        <td className="px-4 py-4">
-                          {guest.guest_count ?? 'Pending'} / {guest.max_guests}
-                        </td>
-                        <td className="px-4 py-4">{formatBoolean(guest.sunday_event)}</td>
-                        <td className="px-4 py-4">
-                          {formatBoolean(guest.hotel_reservation_requested)}
-                        </td>
-                        <td className="px-4 py-4">
-                          {[
-                            guest.friday_night && 'Fri',
-                            guest.saturday_night && 'Sat',
-                            guest.sunday_night && 'Sun',
-                          ]
-                            .filter(Boolean)
-                            .join(', ') || 'None'}
-                        </td>
-                        <td className="max-w-xs px-4 py-4">
-                          {guest.dietary_requirements || 'None'}
-                        </td>
-                        <td className="max-w-xs px-4 py-4">{guest.message || 'None'}</td>
-                        <td className="px-4 py-4">{formatDate(guest.updated_at)}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleCopyGuestEmail(guest)}
-                              className="btn btn-secondary whitespace-nowrap px-3 py-2"
-                            >
-                              Copy
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadGuestEmail(guest)}
-                              className="btn btn-outline whitespace-nowrap px-3 py-2"
-                            >
-                              Export
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {guests.map((guest) => {
+                      const isEditing = editingGuestId === guest.id;
+                      const isSaving = savingRsvpId === guest.id;
+                      const isClearing = clearingRsvpId === guest.id;
+                      const isDeleting = deletingGuestId === guest.id;
+
+                      return (
+                        <Fragment key={guest.id}>
+                          <tr key={guest.id} className="align-top">
+                            <td className="px-4 py-4">
+                              <span className="block font-medium">{guest.name}</span>
+                              <span className="block text-muted-foreground">
+                                {guest.email ?? 'No email'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <label className="inline-flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={guest.invite_sent}
+                                  disabled={updatingInviteSentIds.has(guest.id)}
+                                  onChange={(event) =>
+                                    handleInviteSentChange(guest, event.target.checked)
+                                  }
+                                />
+                                <span>{guest.invite_sent ? 'Sent' : 'Not sent'}</span>
+                              </label>
+                            </td>
+                            <td className="px-4 py-4">{formatBoolean(guest.attending)}</td>
+                            <td className="px-4 py-4">
+                              {guest.guest_count ?? 'Pending'} / {guest.max_guests}
+                            </td>
+                            <td className="px-4 py-4">{formatBoolean(guest.sunday_event)}</td>
+                            <td className="px-4 py-4">
+                              {formatBoolean(guest.hotel_reservation_requested)}
+                            </td>
+                            <td className="px-4 py-4">
+                              {[
+                                guest.friday_night && 'Fri',
+                                guest.saturday_night && 'Sat',
+                                guest.sunday_night && 'Sun',
+                              ]
+                                .filter(Boolean)
+                                .join(', ') || 'None'}
+                            </td>
+                            <td className="max-w-xs px-4 py-4">
+                              {guest.dietary_requirements || 'None'}
+                            </td>
+                            <td className="max-w-xs px-4 py-4">{guest.message || 'None'}</td>
+                            <td className="px-4 py-4">{formatDate(guest.updated_at)}</td>
+                            <td className="px-4 py-4">
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyGuestEmail(guest)}
+                                  className="btn btn-secondary whitespace-nowrap px-3 py-2"
+                                >
+                                  Copy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDownloadGuestEmail(guest)}
+                                  className="btn btn-outline whitespace-nowrap px-3 py-2"
+                                >
+                                  Export
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex min-w-40 flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditGuest(guest)}
+                                  className="btn btn-secondary whitespace-nowrap px-3 py-2"
+                                  disabled={isDeleting}
+                                >
+                                  {isEditing ? 'Close Editor' : 'Edit RSVP'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleClearRsvp(guest)}
+                                  className="btn btn-outline whitespace-nowrap px-3 py-2"
+                                  disabled={isSaving || isClearing || isDeleting}
+                                >
+                                  {isClearing ? 'Clearing...' : 'Clear RSVP'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteGuest(guest)}
+                                  className="btn whitespace-nowrap border border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100"
+                                  disabled={isSaving || isClearing || isDeleting}
+                                >
+                                  {isDeleting ? 'Deleting...' : 'Delete Guest'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isEditing && editForm && (
+                            <tr className="bg-muted/30">
+                              <td className="px-4 py-5" colSpan={12}>
+                                <div className="space-y-4">
+                                  <div>
+                                    <h3 className="text-base font-semibold">
+                                      Edit RSVP for {guest.name}
+                                    </h3>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                      Update their RSVP manually or clear it if you need to start over.
+                                    </p>
+                                  </div>
+
+                                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                    <div className="form-group">
+                                      <label className="label">Attending</label>
+                                      <select
+                                        value={editForm.attending}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? { ...current, attending: event.target.value as 'yes' | 'no' }
+                                              : current,
+                                          )
+                                        }
+                                        className="input"
+                                      >
+                                        <option value="yes">Yes</option>
+                                        <option value="no">No</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                      <label className="label">Party Size</label>
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max={guest.max_guests}
+                                        value={editForm.guest_count}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  guest_count: Math.max(
+                                                    1,
+                                                    Number(event.target.value) || 1,
+                                                  ),
+                                                }
+                                              : current,
+                                          )
+                                        }
+                                        className="input"
+                                      />
+                                      <p className="text-xs text-muted-foreground">
+                                        Max allowed: {guest.max_guests}
+                                      </p>
+                                    </div>
+
+                                    <div className="form-group">
+                                      <label className="label">Sunday Event</label>
+                                      <select
+                                        value={editForm.sunday_event}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  sunday_event: event.target.value as 'yes' | 'no',
+                                                }
+                                              : current,
+                                          )
+                                        }
+                                        className="input"
+                                      >
+                                        <option value="no">No</option>
+                                        <option value="yes">Yes</option>
+                                      </select>
+                                    </div>
+
+                                    <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.hotel_reservation_requested}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  hotel_reservation_requested: event.target.checked,
+                                                }
+                                              : current,
+                                          )
+                                        }
+                                      />
+                                      Hotel requested
+                                    </label>
+
+                                    <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.friday_night}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? { ...current, friday_night: event.target.checked }
+                                              : current,
+                                          )
+                                        }
+                                      />
+                                      Friday night
+                                    </label>
+
+                                    <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.saturday_night}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? { ...current, saturday_night: event.target.checked }
+                                              : current,
+                                          )
+                                        }
+                                      />
+                                      Saturday night
+                                    </label>
+
+                                    <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
+                                      <input
+                                        type="checkbox"
+                                        checked={editForm.sunday_night}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? { ...current, sunday_night: event.target.checked }
+                                              : current,
+                                          )
+                                        }
+                                      />
+                                      Sunday night
+                                    </label>
+                                  </div>
+
+                                  <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="form-group">
+                                      <label className="label">Dietary Requirements</label>
+                                      <textarea
+                                        value={editForm.dietary_requirements}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current
+                                              ? {
+                                                  ...current,
+                                                  dietary_requirements: event.target.value,
+                                                }
+                                              : current,
+                                          )
+                                        }
+                                        className="input min-h-24"
+                                      />
+                                    </div>
+
+                                    <div className="form-group">
+                                      <label className="label">Message</label>
+                                      <textarea
+                                        value={editForm.message}
+                                        onChange={(event) =>
+                                          setEditForm((current) =>
+                                            current ? { ...current, message: event.target.value } : current,
+                                          )
+                                        }
+                                        className="input min-h-24"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveRsvp(guest)}
+                                      className="btn btn-primary"
+                                      disabled={isSaving || isClearing || isDeleting}
+                                    >
+                                      {isSaving ? 'Saving...' : 'Save RSVP'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingGuestId(null);
+                                        setEditForm(null);
+                                      }}
+                                      className="btn btn-secondary"
+                                      disabled={isSaving}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
