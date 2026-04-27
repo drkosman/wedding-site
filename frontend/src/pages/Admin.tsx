@@ -62,7 +62,7 @@ type EditableRsvpForm = {
   message: string;
 };
 
-const WEDDING_DATE = 'Friday, 1 May 2026';
+const WEDDING_DATE = 'Saturday, 1 May 2027';
 const WEDDING_LOCATION = 'Barnacarry Bay, Scotland';
 const EMAIL_PHOTO_PATHS = {
   hero: '/email-photos/lucyandkosta.jpeg',
@@ -125,7 +125,6 @@ function buildGuestEmail(guest: GuestRow): GuestEmail {
     '',
     `${WEDDING_DATE}`,
     `${WEDDING_LOCATION}`,
-    'Ceremony at 3:00 PM',
     '',
     `Please RSVP using your personal link: ${link}`,
     '',
@@ -577,7 +576,20 @@ export default function Admin() {
       });
       await refreshDashboard();
       if (editingGuestId === guest.id) {
-        setEditForm(createRsvpDraft({ ...guest, attending: null, guest_count: null, sunday_event: null, hotel_reservation_requested: null, friday_night: null, saturday_night: null, sunday_night: null, dietary_requirements: null, message: null }));
+        setEditForm(
+          createRsvpDraft({
+            ...guest,
+            attending: null,
+            guest_count: null,
+            sunday_event: null,
+            hotel_reservation_requested: null,
+            friday_night: null,
+            saturday_night: null,
+            sunday_night: null,
+            dietary_requirements: null,
+            message: null,
+          }),
+        );
       }
       setNotice(`Cleared RSVP for ${guest.name}.`);
     } catch {
@@ -703,7 +715,7 @@ export default function Admin() {
 
             {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
             {notice && <p className="card border-green-200 text-sm text-green-700">{notice}</p>}
-            
+
             <section className="card">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold">Add Guest</h2>
@@ -925,7 +937,8 @@ export default function Admin() {
                                       Edit RSVP for {guest.name}
                                     </h3>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      Update their RSVP manually or clear it if you need to start over.
+                                      Update their RSVP manually or clear it if you need to start
+                                      over.
                                     </p>
                                   </div>
 
@@ -937,7 +950,10 @@ export default function Admin() {
                                         onChange={(event) =>
                                           setEditForm((current) =>
                                             current
-                                              ? { ...current, attending: event.target.value as 'yes' | 'no' }
+                                              ? {
+                                                  ...current,
+                                                  attending: event.target.value as 'yes' | 'no',
+                                                }
                                               : current,
                                           )
                                         }
@@ -1085,7 +1101,9 @@ export default function Admin() {
                                         value={editForm.message}
                                         onChange={(event) =>
                                           setEditForm((current) =>
-                                            current ? { ...current, message: event.target.value } : current,
+                                            current
+                                              ? { ...current, message: event.target.value }
+                                              : current,
                                           )
                                         }
                                         className="input min-h-24"
