@@ -1,6 +1,7 @@
 import csv
 import io
 from uuid import uuid4
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlmodel import Session, select
@@ -8,10 +9,51 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 
 from ..database import get_session
-from ..models import Guest, GuestRequest, InviteSentRequest, RSVP
+from ..models import Guest, GuestRequest, InviteSentRequest, RSVP, RSVPRequest
 from .utils import verify_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+
+def upsert_guest_rsvp(session: Session, guest: Guest, payload: RSVPRequest):
+    if payload.guest_count > guest.max_guests:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Guest count cannot exceed {guest.max_guests}",
+        )
+
+    existing = session.exec(
+        select(RSVP).where(RSVP.guest_id == guest.id)
+    ).first()
+
+    if existing:
+        existing.attending = payload.attending
+        existing.guest_count = payload.guest_count
+        existing.sunday_event = payload.sunday_event
+        existing.hotel_reservation_requested = payload.hotel_reservation_requested
+        existing.friday_night = payload.friday_night
+        existing.saturday_night = payload.saturday_night
+        existing.sunday_night = payload.sunday_night
+        existing.dietary_requirements = payload.dietary_requirements
+        existing.message = payload.message
+        existing.updated_at = datetime.utcnow()
+        session.add(existing)
+        return existing
+
+    rsvp = RSVP(
+        guest_id=guest.id,
+        attending=payload.attending,
+        guest_count=payload.guest_count,
+        sunday_event=payload.sunday_event,
+        hotel_reservation_requested=payload.hotel_reservation_requested,
+        friday_night=payload.friday_night,
+        saturday_night=payload.saturday_night,
+        sunday_night=payload.sunday_night,
+        dietary_requirements=payload.dietary_requirements,
+        message=payload.message,
+    )
+    session.add(rsvp)
+    return rsvp
 
 @router.post("/guest")
 def create_guest(
@@ -160,6 +202,77 @@ def update_guest_invite_sent(
         "id": guest.id,
         "invite_sent": guest.invite_sent,
     }
+
+
+@router.put("/guest/{guest_id}/rsvp")
+def admin_upsert_rsvp(
+    guest_id: int,
+    payload: RSVPRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    guest = session.get(Guest, guest_id)
+
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
+
+    rsvp = upsert_guest_rsvp(session, guest, payload)
+    session.commit()
+    session.refresh(rsvp)
+
+    return {
+        "id": rsvp.id,
+        "guest_id": rsvp.guest_id,
+        "updated_at": rsvp.updated_at,
+    }
+
+
+@router.delete("/guest/{guest_id}/rsvp")
+def admin_delete_rsvp(
+    guest_id: int,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    guest = session.get(Guest, guest_id)
+
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
+
+    existing = session.exec(
+        select(RSVP).where(RSVP.guest_id == guest.id)
+    ).first()
+
+    if not existing:
+        raise HTTPException(status_code=404, detail="RSVP not found")
+
+    session.delete(existing)
+    session.commit()
+
+    return {"status": "deleted"}
+
+
+@router.delete("/guest/{guest_id}")
+def delete_guest(
+    guest_id: int,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    guest = session.get(Guest, guest_id)
+
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
+
+    existing = session.exec(
+        select(RSVP).where(RSVP.guest_id == guest.id)
+    ).first()
+
+    if existing:
+        session.delete(existing)
+
+    session.delete(guest)
+    session.commit()
+
+    return {"status": "deleted"}
 
 
 @router.post("/guests/bulk")
