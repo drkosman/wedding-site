@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useIsMobile } from './Hero/utils';
 
 const heroPhotoModules = import.meta.glob<string>(
   '../assets/hero-photos/*.{jpg,jpeg,png,webp,avif}',
@@ -23,6 +24,7 @@ const heroPhotos = Object.entries(heroPhotoModules)
 export default function Hero() {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
+  const isMobile = useIsMobile();
   useEffect(() => {
     if (heroPhotos.length <= 1) {
       return;
@@ -51,26 +53,37 @@ export default function Hero() {
     <section className="relative min-h-screen overflow-hidden bg-secondary text-white">
       {hasPhotos ? (
         <div className="absolute inset-0" aria-hidden="true">
-          {heroPhotos.map((photo, index) => (
-            <div
-              key={photo.src}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                index === activePhotoIndex ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
+          {heroPhotos.map((photo, index) =>
+            isMobile ? (
               <img
+                key={photo.src}
                 src={photo.src}
                 alt=""
-                className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl"
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
+                  index === activePhotoIndex ? 'opacity-100' : 'opacity-0'
+                }`}
               />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12),rgba(0,0,0,0.5))]" />
-              <img
-                src={photo.src}
-                alt=""
-                className="absolute inset-0 h-full w-full object-contain"
-              />
-            </div>
-          ))}
+            ) : (
+              <div
+                key={photo.src}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  index === activePhotoIndex ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <img
+                  src={photo.src}
+                  alt=""
+                  className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl"
+                />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12),rgba(0,0,0,0.5))]" />
+                <img
+                  src={photo.src}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              </div>
+            ),
+          )}
         </div>
       ) : (
         <div
@@ -91,17 +104,11 @@ export default function Hero() {
             Lucy & Kosta
           </h1>
 
-          <p className="text-xl font-medium text-white drop-shadow">
-            May 1st, 2026
-          </p>
+          <p className="text-xl font-medium text-white drop-shadow">May 1st, 2027</p>
 
-          <p className="mt-2 text-white/90 drop-shadow">
-            Barnacarry Bay
-          </p>
+          <p className="mt-2 text-white/90 drop-shadow">Barnacarry Bay</p>
 
-          <p className="mt-16 animate-pulse text-md text-white/80 drop-shadow">
-            Scroll to RSVP ↓
-          </p>
+          <p className="mt-16 animate-pulse text-md text-white/80 drop-shadow">Scroll to RSVP ↓</p>
         </div>
       </div>
 
@@ -122,7 +129,9 @@ export default function Hero() {
                 key={photo.src}
                 type="button"
                 className={`h-2.5 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-white ${
-                  index === activePhotoIndex ? 'w-8 bg-white' : 'w-2.5 bg-white/55 hover:bg-white/80'
+                  index === activePhotoIndex
+                    ? 'w-8 bg-white'
+                    : 'w-2.5 bg-white/55 hover:bg-white/80'
                 }`}
                 onClick={() => setActivePhotoIndex(index)}
                 aria-label={`Show hero photo ${index + 1}`}

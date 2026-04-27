@@ -83,7 +83,7 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
                 RSVP for {guest.name}
               </h2>
               <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-                Let us know your plans, guests, and anything we should pass along to the venue.
+                Let us know your plans, guests, and anything else you think we should know.
               </p>
             </div>
 
@@ -208,9 +208,9 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
-                    ['friday_night', 'Friday', '1 May 2026'],
-                    ['saturday_night', 'Saturday', '2 May 2026'],
-                    ['sunday_night', 'Sunday', '3 May 2026'],
+                    ['friday_night', 'Friday', '30 April 2027'],
+                    ['saturday_night', 'Saturday', '1 May 2027'],
+                    ['sunday_night', 'Sunday', '2 May 2027'],
                   ].map(([fieldName, day, date]) => (
                     <label key={fieldName} className="cursor-pointer">
                       <input
@@ -229,7 +229,7 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  Monday 4 May 2026 is the checkout date for Sunday-night stays.
+                  Monday 3 May 2027 is the checkout date for Sunday-night stays.
                 </p>
               </fieldset>
 
@@ -262,7 +262,7 @@ export default function RSVPForm({ guest, token }: RSVPFormProps) {
               <button
                 type="submit"
                 disabled={status === 'saving'}
-                className="btn btn-primary h-12 w-full text-base"
+                className="btn btn-primary btn-cta h-13 w-full text-base tracking-[0.01em]"
               >
                 {status === 'saving' ? 'Submitting...' : 'Submit RSVP'}
               </button>

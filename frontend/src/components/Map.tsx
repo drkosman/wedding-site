@@ -1,10 +1,10 @@
 import WebScene from '@arcgis/core/WebScene';
 import Point from '@arcgis/core/geometry/Point';
 import '@arcgis/map-components/components/arcgis-scene';
-import '@arcgis/map-components/components/arcgis-zoom';
 import Map from '@arcgis/core/Map';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { concentricRipples } from './Map/utils';
 import FeatureLayer from '@arcgis/core/layers/FeatureLayer';
 import { CONTOUR_URLS } from './Map/constants';
@@ -28,6 +28,8 @@ const removeMapAttribution = (view: MapView | HTMLArcgisSceneElement['view']) =>
 export default function AppMap() {
   const sceneRef = useRef<HTMLArcgisSceneElement | null>(null);
   const overviewRef = useRef<HTMLDivElement | null>(null);
+  const overviewViewRef = useRef<MapView | null>(null);
+  const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
 
   useEffect(() => {
     const sceneEl = sceneRef.current;
@@ -48,11 +50,13 @@ export default function AppMap() {
     const overviewView = new MapView({
       container: overviewEl,
       map: overviewMap,
-
       center: [VENUE.lon, VENUE.lat],
       zoom: 4,
+      constraints: { rotationEnabled: false },
+      popupEnabled: false,
       ui: { components: [] },
     });
+    overviewViewRef.current = overviewView;
 
     overviewView.graphics.add(
       new Graphic({
@@ -181,24 +185,67 @@ export default function AppMap() {
     return () => {
       cancelled = true;
       removeRipples?.();
+      overviewViewRef.current = null;
       overviewView.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    const overviewView = overviewViewRef.current;
+    if (!overviewView) return;
+
+    overviewView.attributionVisible = false;
+    overviewView.ui.components = [];
+
+    const nextZoom = isOverviewExpanded ? 6 : 4;
+
+    requestAnimationFrame(() => {
+      overviewView.goTo({ center: [VENUE.lon, VENUE.lat], zoom: nextZoom }).catch(() => undefined);
+    });
+  }, [isOverviewExpanded]);
 
   return (
     <section className="section bg-secondary text-center">
       <div className="container-page max-w-3xl py-0">
         <div className="relative h-[360px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-black shadow-[0_10px_30px_rgba(0,0,0,0.08)] md:h-[500px]">
-        <arcgis-scene
-          ref={sceneRef}
-          hideAttribution
-          style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
-        />
+          <arcgis-scene
+            ref={sceneRef}
+            hideAttribution
+            style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
+          />
 
-        <div
-          ref={overviewRef}
-          className="absolute top-2 right-2 w-35 h-35 border border-white/40 rounded overflow-hidden bg-black"
-        />
+          <div
+            className={`absolute z-10 overflow-hidden rounded-2xl border border-white/20 bg-black/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-all duration-500 ease-out ${
+              isOverviewExpanded
+                ? 'inset-3 md:inset-4'
+                : 'top-3 right-3 h-36 w-36 md:h-40 md:w-40'
+            }`}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/85 via-black/45 to-transparent px-3 py-3 text-left">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-white/55">Location</p>
+                <p className="text-sm font-medium text-white">Barnacarry Bay</p>
+                <p className="text-xs text-white/65">
+                  {isOverviewExpanded ? 'Explore the surrounding area' : 'Expand for context'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOverviewExpanded((expanded) => !expanded)}
+                className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white transition hover:border-white/40 hover:bg-black/80"
+                aria-label={isOverviewExpanded ? 'Minimise overview map' : 'Maximise overview map'}
+              >
+                {isOverviewExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <div
+              ref={overviewRef}
+              className={`h-full w-full transition-opacity duration-300 ${
+                isOverviewExpanded ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-90'
+              }`}
+            />
+          </div>
         </div>
       </div>
     </section>
