@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import create_engine, inspect, text
 
 from app import database
-from app.models import ContentEntry, Guest, RSVP
+from app.models import ContentEntry, Guest, HomepageSection, RSVP
 
 
 class DatabaseMigrationTests(unittest.TestCase):
@@ -115,6 +115,15 @@ class DatabaseMigrationTests(unittest.TestCase):
                     for kind in ("schedule", "accommodation", "travel")
                 }
             self.assertEqual(counts, {"schedule": 2, "accommodation": 1, "travel": 4})
+            self.assertTrue(inspect(database.engine).has_table(HomepageSection.__tablename__))
+            with database.engine.begin() as connection:
+                migration_count = connection.execute(
+                    text(
+                        "SELECT COUNT(*) FROM schema_migration "
+                        "WHERE id = '002_homepage_sections'"
+                    )
+                ).scalar_one()
+            self.assertEqual(migration_count, 1)
         finally:
             database.engine = original_engine
             database_path.unlink(missing_ok=True)

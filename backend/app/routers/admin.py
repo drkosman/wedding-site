@@ -15,12 +15,21 @@ from ..models import (
     ContentReorderRequest,
     Guest,
     GuestRequest,
+    HomepageSection,
+    HomepageSectionReorderRequest,
+    HomepageSectionRequest,
     InviteSentRequest,
     ReconcileRSVPRequest,
     RSVP,
     utcnow,
 )
-from .content import list_content_entries, serialize_content_entry, validate_content_kind
+from .content import (
+    list_content_entries,
+    list_homepage_sections,
+    serialize_content_entry,
+    serialize_homepage_section,
+    validate_content_kind,
+)
 from .utils import verify_admin
 
 
@@ -377,6 +386,133 @@ def next_content_sort_order(session: Session, kind: str) -> int:
         select(func.max(ContentEntry.sort_order)).where(ContentEntry.kind == kind)
     ).one()
     return 0 if current_max is None else current_max + 1
+
+
+def next_homepage_section_sort_order(session: Session, position: int) -> int:
+    current_max = session.exec(
+        select(func.max(HomepageSection.sort_order)).where(
+            HomepageSection.position == position
+        )
+    ).one()
+    return 0 if current_max is None else current_max + 1
+
+
+def compact_homepage_section_order(session: Session, position: int) -> None:
+    sections = session.exec(
+        select(HomepageSection)
+        .where(HomepageSection.position == position)
+        .order_by(HomepageSection.sort_order, HomepageSection.id)
+    ).all()
+    for sort_order, section in enumerate(sections):
+        section.sort_order = sort_order
+        session.add(section)
+
+
+def apply_homepage_section_payload(
+    section: HomepageSection,
+    payload: HomepageSectionRequest,
+) -> HomepageSection:
+    section.title = payload.title
+    section.subtitle = payload.subtitle
+    section.content = payload.content
+    section.position = payload.position
+    section.updated_at = utcnow()
+    return section
+
+
+@router.get("/homepage-sections")
+def admin_list_homepage_sections(
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    return list_homepage_sections(session, include_timestamps=True)
+
+
+@router.post("/homepage-sections", status_code=201)
+def admin_create_homepage_section(
+    payload: HomepageSectionRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    section = HomepageSection(
+        title=payload.title,
+        subtitle=payload.subtitle,
+        content=payload.content,
+        position=payload.position,
+        sort_order=next_homepage_section_sort_order(session, payload.position),
+    )
+    session.add(section)
+    session.commit()
+    session.refresh(section)
+    return serialize_homepage_section(section, include_timestamps=True)
+
+
+@router.put("/homepage-sections/reorder")
+def admin_reorder_homepage_sections(
+    payload: HomepageSectionReorderRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    sections = session.exec(
+        select(HomepageSection).where(HomepageSection.position == payload.position)
+    ).all()
+    sections_by_id = {section.id: section for section in sections}
+    if len(payload.ids) != len(set(payload.ids)):
+        raise HTTPException(status_code=400, detail="Duplicate homepage section IDs are not allowed")
+    if len(payload.ids) != len(sections):
+        raise HTTPException(
+            status_code=400,
+            detail="Reorder list must include every section at this homepage position",
+        )
+    if any(section_id not in sections_by_id for section_id in payload.ids):
+        raise HTTPException(status_code=400, detail="Reorder list contains unknown sections")
+    for sort_order, section_id in enumerate(payload.ids):
+        section = sections_by_id[section_id]
+        section.sort_order = sort_order
+        section.updated_at = utcnow()
+        session.add(section)
+    session.commit()
+    return list_homepage_sections(session, include_timestamps=True)
+
+
+@router.put("/homepage-sections/{section_id}")
+def admin_update_homepage_section(
+    section_id: int,
+    payload: HomepageSectionRequest,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    section = session.get(HomepageSection, section_id)
+    if not section:
+        raise HTTPException(status_code=404, detail="Homepage section not found")
+
+    previous_position = section.position
+    if payload.position != previous_position:
+        section.sort_order = next_homepage_section_sort_order(session, payload.position)
+    apply_homepage_section_payload(section, payload)
+    session.add(section)
+    if payload.position != previous_position:
+        compact_homepage_section_order(session, previous_position)
+    session.commit()
+    session.refresh(section)
+    return serialize_homepage_section(section, include_timestamps=True)
+
+
+@router.delete("/homepage-sections/{section_id}")
+def admin_delete_homepage_section(
+    section_id: int,
+    session: Session = Depends(get_session),
+    _: None = Depends(verify_admin),
+):
+    section = session.get(HomepageSection, section_id)
+    if not section:
+        raise HTTPException(status_code=404, detail="Homepage section not found")
+    position = section.position
+    session.delete(section)
+    session.flush()
+    compact_homepage_section_order(session, position)
+    session.commit()
+    return {"status": "deleted"}
 
 
 @router.get("/content/{kind}")
