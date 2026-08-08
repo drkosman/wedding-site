@@ -1,4 +1,5 @@
 export const PUBLIC_MAX_GUESTS = 6;
+export const HOTEL_RESERVATION_REQUESTS_ENABLED = false;
 
 export type RSVPFormData = {
   full_name: string;
@@ -11,7 +12,7 @@ export type RSVPFormData = {
   friday_night: boolean;
   saturday_night: boolean;
   sunday_night: boolean;
-  dietary_requirements?: string;
+  dietaries?: string;
   message?: string;
   website: string;
 };
@@ -27,7 +28,7 @@ export type RSVPPayload = {
   friday_night: boolean;
   saturday_night: boolean;
   sunday_night: boolean;
-  dietary_requirements: string | null;
+  dietaries: string | null;
   message: string | null;
   website: string;
   turnstile_token: string;
@@ -42,7 +43,8 @@ export function buildRSVPPayload(
   turnstileToken: string,
 ): RSVPPayload {
   const attending = data.attending === 'yes';
-  const hotelRequested = attending && data.hotel_reservation_requested;
+  const hotelRequested =
+    HOTEL_RESERVATION_REQUESTS_ENABLED && attending && data.hotel_reservation_requested;
   const guestCount = attending ? data.guest_count : 1;
 
   return {
@@ -57,7 +59,7 @@ export function buildRSVPPayload(
     friday_night: hotelRequested && data.friday_night,
     saturday_night: hotelRequested && data.saturday_night,
     sunday_night: hotelRequested && data.sunday_night,
-    dietary_requirements: attending ? optionalText(data.dietary_requirements) : null,
+    dietaries: attending ? optionalText(data.dietaries) : null,
     message: optionalText(data.message),
     website: data.website,
     turnstile_token: turnstileToken,

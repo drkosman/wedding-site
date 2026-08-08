@@ -9,7 +9,7 @@ export default function Details() {
           <a
             href="https://maps.app.goo.gl/bg8bxSFaJbG3RMYt5"
             target="_blank"
-            className="text-muted-foreground font-bold inline-flex items-center gap-1 underline"
+            className="text-primary-strong hover:text-primary-hover font-bold inline-flex items-center gap-1 underline"
           >
             Barnacarry Bay, Scotland
             <ExternalLink className="w-4 h-4 opacity-70" />

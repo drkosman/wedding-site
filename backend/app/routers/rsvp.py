@@ -27,7 +27,7 @@ def create_public_rsvp(payload: PublicRSVPRequest, session: Session) -> RSVP:
         friday_night=payload.friday_night,
         saturday_night=payload.saturday_night,
         sunday_night=payload.sunday_night,
-        dietary_requirements=payload.dietary_requirements,
+        dietaries=payload.dietaries,
         message=payload.message,
         created_at=now,
         updated_at=now,

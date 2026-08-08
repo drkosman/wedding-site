@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import unittest
 from pathlib import Path
@@ -33,6 +34,7 @@ from app.routers.admin import (
     admin_update_homepage_section,
     admin_update_rsvp,
     delete_guest,
+    export_rsvps_csv,
     list_rsvps,
     reconcile_rsvp,
 )
@@ -88,7 +90,7 @@ class AdminRouteTests(unittest.TestCase):
             return rsvp
 
     def test_admin_list_exposes_submission_details_and_duplicate_signal(self):
-        self.create_rsvp()
+        self.create_rsvp(dietaries="Vegetarian")
         self.create_rsvp(submitted_name="Shared Email Guest")
 
         with Session(self.engine) as session:
@@ -100,6 +102,24 @@ class AdminRouteTests(unittest.TestCase):
         self.assertIsNone(rows[0]["guest_id"])
         self.assertIn("created_at", rows[0])
         self.assertIn("additional_guest_names", rows[0])
+        self.assertEqual(rows[1]["dietaries"], "Vegetarian")
+
+    def test_rsvp_export_includes_dietaries(self):
+        self.create_rsvp(dietaries="Nut allergy")
+
+        with Session(self.engine) as session:
+            response = export_rsvps_csv(session, None)
+
+        async def read_body() -> str:
+            chunks = [chunk async for chunk in response.body_iterator]
+            return "".join(
+                chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                for chunk in chunks
+            )
+
+        body = asyncio.run(read_body())
+        self.assertIn("dietaries", body.splitlines()[0])
+        self.assertIn("Nut allergy", body)
 
     def test_admin_can_reconcile_without_automatic_matching(self):
         guest = self.create_guest(max_guests=2)

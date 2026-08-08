@@ -42,7 +42,7 @@ export default function AppMap() {
     const overviewMap = new Map({
       basemap: {
         portalItem: {
-          id: '7e2b9be8a9c94e45b7f87857d8d168d6', // Human geography dark
+          id: '7861c79dfe8b4a308a400e31f97d082b', // Human geography dark
         },
       },
     });
@@ -67,7 +67,7 @@ export default function AppMap() {
         },
         symbol: {
           type: 'simple-marker',
-          color: 'gold',
+          color: [0, 150, 136],
           size: 8,
           outline: {
             color: 'white',
@@ -81,7 +81,7 @@ export default function AppMap() {
 
     // Create and assign scene FIRST
     const scene = new WebScene({
-      basemap: 'navigation-dark-3d',
+      basemap: 'topo-3d',
       ground: 'world-elevation',
     });
 
@@ -100,18 +100,14 @@ export default function AppMap() {
       });
 
       sceneEl.view.environment = {
-        atmosphereEnabled: false,
+        atmosphereEnabled: true,
         starsEnabled: false,
-        background: {
-          type: 'color',
-          color: [0, 0, 0, 1],
-        },
       };
 
       removeMapAttribution(sceneEl.view);
 
       sceneEl.view.environment.lighting = {
-        date: new Date('2024-12-01T08:00:00'),
+        date: new Date('2024-12-01T12:00:00'),
         directShadowsEnabled: true,
       };
 
@@ -120,8 +116,6 @@ export default function AppMap() {
       scene.ground.navigationConstraint = {
         type: 'none',
       };
-
-      scene.ground.surfaceColor = '#000000';
 
       scene.ground.layers.forEach((layer) => {
         (layer as unknown as ExaggeratedGroundLayer).exaggeration = 3;
@@ -135,7 +129,7 @@ export default function AppMap() {
             type: 'simple',
             symbol: {
               type: 'simple-line',
-              color: [236, 217, 255, 0.95],
+              color: [48, 141, 217, 0.95],
             },
           },
         });
@@ -165,7 +159,7 @@ export default function AppMap() {
               width: 75,
               depth: 75,
               material: {
-                color: [255, 215, 0, 25],
+                color: [201, 217, 230, 25],
                 emissive: { strength: 4, source: 'color' },
               },
             },
@@ -207,7 +201,7 @@ export default function AppMap() {
   return (
     <section className="section bg-secondary text-center">
       <div className="container-page max-w-3xl py-0">
-        <div className="relative h-[360px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-black shadow-[0_10px_30px_rgba(0,0,0,0.08)] md:h-[500px]">
+        <div className="relative h-[360px] w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-black shadow-[0_10px_30px_rgba(24,61,58,0.14)] md:h-[500px]">
           <arcgis-scene
             ref={sceneRef}
             hideAttribution
@@ -215,24 +209,24 @@ export default function AppMap() {
           />
 
           <div
-            className={`absolute z-10 overflow-hidden rounded-2xl border border-white/20 bg-black/80 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-all duration-500 ease-out ${
+            className={`absolute z-10 overflow-hidden rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-all duration-500 ease-out ${
               isOverviewExpanded
                 ? 'inset-3 md:inset-4'
                 : 'top-3 right-3 h-36 w-36 md:h-40 md:w-40'
             }`}
           >
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/85 via-black/45 to-transparent px-3 py-3 text-left">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-white/85 via-white/45 to-transparent px-3 py-3 text-left">
               <div>
-                <p className="text-[10px] uppercase tracking-[0.28em] text-white/55">Location</p>
-                <p className="text-sm font-medium text-white">Barnacarry Bay</p>
-                <p className="text-xs text-white/65">
+                <p className="text-[10px] uppercase tracking-[0.28em] text-[0, 150, 136, 0.55]">Location</p>
+                <p className="text-sm font-medium text-[0, 150, 136]">Barnacarry Bay</p>
+                <p className="text-xs text-[0, 150, 136, 0.75]">
                   {isOverviewExpanded ? 'Explore the surrounding area' : 'Expand for context'}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOverviewExpanded((expanded) => !expanded)}
-                className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/65 text-white transition hover:border-white/40 hover:bg-black/80"
+                className="pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-[rgba(0,150,136,0.65)] text-white transition hover:border-white/40 hover:bg-[rgba(0,150,136,0.8)]"
                 aria-label={isOverviewExpanded ? 'Minimise overview map' : 'Maximise overview map'}
               >
                 {isOverviewExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}

@@ -40,7 +40,7 @@ def valid_payload(**overrides) -> PublicRSVPRequest:
         "hotel_reservation_requested": True,
         "friday_night": True,
         "saturday_night": True,
-        "dietary_requirements": " Vegetarian ",
+        "dietaries": " Vegetarian ",
         "message": " Cannot wait ",
         "turnstile_token": "challenge-token",
     }
@@ -85,7 +85,7 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertEqual(stored.additional_guest_names, "Second Guest")
         self.assertTrue(stored.sunday_event)
         self.assertTrue(stored.hotel_reservation_requested)
-        self.assertEqual(stored.dietary_requirements, "Vegetarian")
+        self.assertEqual(stored.dietaries, "Vegetarian")
         self.assertIsNone(stored.guest_id)
 
     def test_declining_submission_clears_attendance_dependent_fields(self):
@@ -97,7 +97,7 @@ class RSVPRouteTests(unittest.TestCase):
             hotel_reservation_requested=False,
             friday_night=False,
             saturday_night=False,
-            dietary_requirements=None,
+            dietaries=None,
         )
         self.submit(payload)
 
@@ -106,7 +106,7 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertFalse(stored.attending)
         self.assertEqual(stored.guest_count, 1)
         self.assertFalse(stored.sunday_event)
-        self.assertIsNone(stored.dietary_requirements)
+        self.assertIsNone(stored.dietaries)
 
     def test_repeated_name_and_email_create_separate_submissions(self):
         self.submit(valid_payload(), ip="203.0.113.21")

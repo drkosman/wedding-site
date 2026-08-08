@@ -17,7 +17,7 @@ export default function Schedule() {
   }, []);
 
   return (
-    <section className="section bg-white text-center">
+    <section className="section bg-surface text-center">
       <div className="container-page max-w-2xl">
         <h2 className="text-3xl font-semibold mb-6">Schedule</h2>
         <h3 className="font-semibold mb-6">Further details coming soon...</h3>
