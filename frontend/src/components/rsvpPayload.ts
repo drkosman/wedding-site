@@ -1,5 +1,6 @@
 export const PUBLIC_MAX_GUESTS = 6;
 export const HOTEL_RESERVATION_REQUESTS_ENABLED = false;
+export const PARTY_SIZE_SELECTION_ENABLED = false;
 
 export type RSVPFormData = {
   full_name: string;
@@ -45,7 +46,8 @@ export function buildRSVPPayload(
   const attending = data.attending === 'yes';
   const hotelRequested =
     HOTEL_RESERVATION_REQUESTS_ENABLED && attending && data.hotel_reservation_requested;
-  const guestCount = attending ? data.guest_count : 1;
+  const guestCount =
+    PARTY_SIZE_SELECTION_ENABLED && attending ? data.guest_count : 1;
 
   return {
     full_name: data.full_name.trim().replace(/\s+/g, ' '),

@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import {
   buildRSVPPayload,
   HOTEL_RESERVATION_REQUESTS_ENABLED,
+  PARTY_SIZE_SELECTION_ENABLED,
   PUBLIC_MAX_GUESTS,
   type RSVPFormData,
 } from './rsvpPayload';
@@ -199,43 +200,47 @@ export default function RSVPForm() {
 
             {attending === 'yes' && (
               <>
-                <div className="form-group">
-                  <label className="label text-base" htmlFor="guest-count">Total number attending</label>
-                  <p className="text-sm text-muted-foreground">
-                    Include yourself. We will confirm this against the paper invitation list.
-                  </p>
-                  <input
-                    id="guest-count"
-                    type="number"
-                    min={1}
-                    max={PUBLIC_MAX_GUESTS}
-                    className="input h-12 max-w-40 text-base"
-                    {...register('guest_count', {
-                      valueAsNumber: true,
-                      min: { value: 1, message: 'At least one guest is required.' },
-                      max: { value: PUBLIC_MAX_GUESTS, message: `Please enter no more than ${PUBLIC_MAX_GUESTS} guests.` },
-                    })}
-                  />
-                  {fieldError(errors.guest_count?.message)}
-                </div>
+                {PARTY_SIZE_SELECTION_ENABLED && (
+                  <>
+                    <div className="form-group">
+                      <label className="label text-base" htmlFor="guest-count">Total number attending</label>
+                      <p className="text-sm text-muted-foreground">
+                        Include yourself. We will confirm this against the paper invitation list.
+                      </p>
+                      <input
+                        id="guest-count"
+                        type="number"
+                        min={1}
+                        max={PUBLIC_MAX_GUESTS}
+                        className="input h-12 max-w-40 text-base"
+                        {...register('guest_count', {
+                          valueAsNumber: true,
+                          min: { value: 1, message: 'At least one guest is required.' },
+                          max: { value: PUBLIC_MAX_GUESTS, message: `Please enter no more than ${PUBLIC_MAX_GUESTS} guests.` },
+                        })}
+                      />
+                      {fieldError(errors.guest_count?.message)}
+                    </div>
 
-                {guestCount > 1 && (
-                  <div className="form-group">
-                    <label className="label text-base" htmlFor="additional-guests">
-                      Names of additional guests
-                    </label>
-                    <textarea
-                      id="additional-guests"
-                      rows={3}
-                      maxLength={600}
-                      className="textarea text-base"
-                      placeholder="One name per line"
-                      {...register('additional_guest_names', {
-                        validate: (value) => value?.trim() ? true : 'Please enter the names of the additional guests.',
-                      })}
-                    />
-                    {fieldError(errors.additional_guest_names?.message)}
-                  </div>
+                    {guestCount > 1 && (
+                      <div className="form-group">
+                        <label className="label text-base" htmlFor="additional-guests">
+                          Names of additional guests
+                        </label>
+                        <textarea
+                          id="additional-guests"
+                          rows={3}
+                          maxLength={600}
+                          className="textarea text-base"
+                          placeholder="One name per line"
+                          {...register('additional_guest_names', {
+                            validate: (value) => value?.trim() ? true : 'Please enter the names of the additional guests.',
+                          })}
+                        />
+                        {fieldError(errors.additional_guest_names?.message)}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <fieldset className="space-y-3">
