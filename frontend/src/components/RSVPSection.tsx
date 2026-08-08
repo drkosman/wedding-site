@@ -9,8 +9,7 @@ export default function RSVPSection() {
         </p>
         <h2 className="mb-4 text-3xl font-semibold">RSVP</h2>
         <p className="mx-auto mb-10 max-w-2xl text-base text-muted-foreground">
-          Please complete your RSVP below so we can confirm your plans, party size, and any
-          dietary details.
+          Please complete your RSVP below so we can confirm your plans and any dietary details.
         </p>
         <div className="mt-8">
           <RSVPForm />

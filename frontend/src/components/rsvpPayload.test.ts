@@ -27,8 +27,8 @@ describe('buildRSVPPayload', () => {
       full_name: 'Test Guest',
       email: 'guest@example.com',
       attending: true,
-      guest_count: 2,
-      additional_guest_names: 'Second Guest',
+      guest_count: 1,
+      additional_guest_names: null,
       sunday_event: false,
       hotel_reservation_requested: false,
       friday_night: false,
@@ -77,6 +77,13 @@ describe('buildRSVPPayload', () => {
       friday_night: false,
       saturday_night: false,
       sunday_night: false,
+    });
+  });
+
+  it('defaults party size to one while party-size selection is paused', () => {
+    expect(buildRSVPPayload(formData(), 'challenge')).toMatchObject({
+      guest_count: 1,
+      additional_guest_names: null,
     });
   });
 
