@@ -13,6 +13,11 @@ EMAIL_MAX_LENGTH = 254
 ADDITIONAL_GUESTS_MAX_LENGTH = 600
 DIETARY_MAX_LENGTH = 1000
 MESSAGE_MAX_LENGTH = 2000
+HOMEPAGE_SECTION_TITLE_MAX_LENGTH = 160
+HOMEPAGE_SECTION_SUBTITLE_MAX_LENGTH = 300
+HOMEPAGE_SECTION_CONTENT_MAX_LENGTH = 10000
+HOMEPAGE_POSITION_MIN = 0
+HOMEPAGE_POSITION_MAX = 6
 EMAIL_LOCAL_PATTERN = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$")
 EMAIL_DOMAIN_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
@@ -115,6 +120,26 @@ class ContentEntry(SQLModel, table=True):
     price_notes: Optional[str] = None
     distance: Optional[str] = None
     website_url: Optional[str] = None
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class HomepageSection(SQLModel, table=True):
+    """Admin-managed content inserted between the fixed homepage sections."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(max_length=HOMEPAGE_SECTION_TITLE_MAX_LENGTH)
+    subtitle: Optional[str] = Field(
+        default=None,
+        max_length=HOMEPAGE_SECTION_SUBTITLE_MAX_LENGTH,
+    )
+    content: str = Field(max_length=HOMEPAGE_SECTION_CONTENT_MAX_LENGTH)
+    position: int = Field(
+        ge=HOMEPAGE_POSITION_MIN,
+        le=HOMEPAGE_POSITION_MAX,
+        index=True,
+    )
+    sort_order: int = Field(default=0, ge=0, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
 
@@ -290,4 +315,36 @@ class ContentEntryRequest(BaseModel):
 
 
 class ContentReorderRequest(BaseModel):
+    ids: list[int]
+
+
+class HomepageSectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=HOMEPAGE_SECTION_TITLE_MAX_LENGTH)
+    subtitle: Optional[str] = Field(
+        default=None,
+        max_length=HOMEPAGE_SECTION_SUBTITLE_MAX_LENGTH,
+    )
+    content: str = Field(min_length=1, max_length=HOMEPAGE_SECTION_CONTENT_MAX_LENGTH)
+    position: int = Field(ge=HOMEPAGE_POSITION_MIN, le=HOMEPAGE_POSITION_MAX)
+
+    @field_validator("title", "content")
+    @classmethod
+    def required_text_is_trimmed(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("Field cannot be empty")
+        return trimmed
+
+    @field_validator("subtitle", mode="before")
+    @classmethod
+    def optional_subtitle_is_trimmed(cls, value: object) -> Optional[str]:
+        return normalize_optional_text(value)
+
+
+class HomepageSectionReorderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    position: int = Field(ge=HOMEPAGE_POSITION_MIN, le=HOMEPAGE_POSITION_MAX)
     ids: list[int]

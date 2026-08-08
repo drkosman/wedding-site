@@ -45,6 +45,16 @@ erDiagram
         string optional_display_fields
         datetime updated_at
     }
+    HOMEPAGE_SECTION {
+        int id PK
+        string title
+        string subtitle nullable
+        string content
+        int position
+        int sort_order
+        datetime created_at
+        datetime updated_at
+    }
 ```
 
 ### Guest and RSVP
@@ -67,6 +77,12 @@ Text limits are: name 160, email 254, additional guest names 600, dietary requir
 
 `ContentEntry` stores one ordered item for `schedule`, `accommodation`, or `travel`. `title` is required and trimmed. Other display fields are optional; whitespace-only strings become `null`. `website_url` must be an absolute `http` or `https` URL. Public reads order by `sort_order`, then `id`.
 
+### Custom homepage sections
+
+`HomepageSection` stores a reusable plain-text section for the public homepage. `title` and `content` are required and trimmed; a blank `subtitle` becomes `null`. Limits are 160 characters for title, 300 for subtitle, and 10,000 for content. Unknown request fields are rejected.
+
+`position` is a required integer from 0 through 6 identifying a gap in the fixed homepage composition: after the hero, then after Wedding Details, RSVP, the map, Schedule, Accommodation, or Getting There & Away. `sort_order` orders multiple custom sections within one position, with `id` as the deterministic tie-breaker. Creation appends within the chosen position; moving to another position appends there; reorder and delete operations compact the affected order.
+
 ## Public endpoints
 
 | Method and path | Behavior |
@@ -74,6 +90,7 @@ Text limits are: name 160, email 254, additional guest names 600, dietary requir
 | `GET /health` | Returns `{ "ok": true }` without querying the database. |
 | `POST /rsvps` | Verifies abuse controls and creates a new unmatched RSVP. Returns `201` with a generic status. |
 | `GET /content/{kind}` | Lists ordered public content. Unknown kinds return `404`. |
+| `GET /homepage-sections` | Lists custom homepage sections by `position`, `sort_order`, then `id`. Timestamps are omitted. |
 
 There is no public guest or RSVP read/search endpoint.
 
@@ -137,9 +154,19 @@ For each supported `{kind}`:
 | `PUT /admin/content/{kind}/{entry_id}` | Replaces editable fields. |
 | `DELETE /admin/content/{kind}/{entry_id}` | Deletes an entry and compacts order. |
 
+Custom homepage sections use these protected endpoints:
+
+| Method and path | Behavior |
+| --- | --- |
+| `GET /admin/homepage-sections` | Lists every custom section in homepage order, including timestamps. |
+| `POST /admin/homepage-sections` | Creates and appends a section at its required `position`. |
+| `PUT /admin/homepage-sections/reorder` | Accepts `{ "position": 2, "ids": [...] }` containing every unique section ID at that position. |
+| `PUT /admin/homepage-sections/{section_id}` | Replaces title, optional subtitle, content, and position. |
+| `DELETE /admin/homepage-sections/{section_id}` | Deletes a section and compacts its former position. |
+
 ## Schema migration and startup
 
-Startup first creates missing tables, then runs `backend/migrations/versions/v001_public_rsvp.py`. Applied versions are recorded once in `schema_migration`. For legacy databases, that migration:
+Startup first creates missing tables, then runs `backend/migrations/versions/v001_public_rsvp.py` and `v002_homepage_sections.py`. Applied versions are recorded once in `schema_migration`. For legacy databases, the first migration:
 
 - preserves invitation rows while removing obsolete invitation credential and plus-one columns;
 - preserves RSVP rows, copying invitation name/email into submitted contact fields where needed;
@@ -147,4 +174,4 @@ Startup first creates missing tables, then runs `backend/migrations/versions/v00
 - adds submitted identity, additional guest names, and creation timestamp columns;
 - creates the indexes required by the new model.
 
-SQLite rebuilds the two related tables transactionally with foreign keys temporarily disabled. PostgreSQL applies explicit alterations and removes the legacy unique constraint by inspection. The migration is repeatable and tested with retained legacy data. The old additive RSVP/content compatibility functions remain only for earlier non-token column versions; `create_all()` alone never alters existing schemas.
+SQLite rebuilds the two related tables transactionally with foreign keys temporarily disabled. PostgreSQL applies explicit alterations and removes the legacy unique constraint by inspection. The second migration creates `homepagesection` and its ordering indexes for existing databases. Both migrations are repeatable and tested. The old additive RSVP/content compatibility functions remain only for earlier non-token column versions; `create_all()` alone never alters existing schemas.

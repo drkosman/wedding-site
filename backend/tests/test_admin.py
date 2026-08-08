@@ -14,6 +14,9 @@ from app.models import (
     ContentEntryRequest,
     ContentReorderRequest,
     Guest,
+    HomepageSection,
+    HomepageSectionReorderRequest,
+    HomepageSectionRequest,
     RSVP,
     ReconcileRSVPRequest,
 )
@@ -21,14 +24,19 @@ from app.routers import admin
 from app.routers.admin import (
     admin_create_content,
     admin_delete_content,
+    admin_delete_homepage_section,
     admin_delete_rsvp,
+    admin_create_homepage_section,
+    admin_reorder_homepage_sections,
     admin_reorder_content,
     admin_update_content,
+    admin_update_homepage_section,
     admin_update_rsvp,
     delete_guest,
     list_rsvps,
     reconcile_rsvp,
 )
+from app.routers.content import public_homepage_sections
 
 
 def admin_payload(**overrides) -> AdminRSVPRequest:
@@ -206,6 +214,163 @@ class AdminRouteTests(unittest.TestCase):
             ContentEntryRequest(title="Hotel", website_url="example.com")
         payload = ContentEntryRequest(title="Hotel", website_url="https://example.com")
         self.assertEqual(payload.website_url, "https://example.com")
+
+    def test_homepage_section_crud_ordering_and_public_retrieval(self):
+        with Session(self.engine) as session:
+            first = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="  Welcome note  ",
+                    subtitle="  From us  ",
+                    content="  First paragraph\n\nSecond paragraph  ",
+                    position=2,
+                ),
+                session,
+                None,
+            )
+            second = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="Things to know",
+                    subtitle="   ",
+                    content="Useful details",
+                    position=2,
+                ),
+                session,
+                None,
+            )
+
+            self.assertEqual(first["title"], "Welcome note")
+            self.assertEqual(first["subtitle"], "From us")
+            self.assertEqual(first["content"], "First paragraph\n\nSecond paragraph")
+            self.assertIsNone(second["subtitle"])
+            self.assertEqual((first["sort_order"], second["sort_order"]), (0, 1))
+
+            updated = admin_update_homepage_section(
+                first["id"],
+                HomepageSectionRequest(
+                    title="Welcome updated",
+                    subtitle=None,
+                    content="Updated copy",
+                    position=2,
+                ),
+                session,
+                None,
+            )
+            with self.assertRaises(HTTPException) as reorder_error:
+                admin_reorder_homepage_sections(
+                    HomepageSectionReorderRequest(position=2, ids=[first["id"]]),
+                    session,
+                    None,
+                )
+            reordered = admin_reorder_homepage_sections(
+                HomepageSectionReorderRequest(
+                    position=2,
+                    ids=[second["id"], first["id"]],
+                ),
+                session,
+                None,
+            )
+            public_sections = public_homepage_sections(session)
+
+            self.assertEqual(updated["title"], "Welcome updated")
+            self.assertEqual(reorder_error.exception.status_code, 400)
+            self.assertEqual(
+                [section["id"] for section in reordered],
+                [second["id"], first["id"]],
+            )
+            self.assertNotIn("created_at", public_sections[0])
+            self.assertNotIn("updated_at", public_sections[0])
+
+            admin_delete_homepage_section(second["id"], session, None)
+            stored = session.exec(select(HomepageSection)).all()
+
+        self.assertEqual(len(stored), 1)
+        self.assertEqual(stored[0].title, "Welcome updated")
+        self.assertEqual(stored[0].sort_order, 0)
+
+    def test_moving_homepage_section_compacts_old_position_and_appends_to_new(self):
+        with Session(self.engine) as session:
+            first = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="First",
+                    content="First content",
+                    position=1,
+                ),
+                session,
+                None,
+            )
+            second = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="Second",
+                    content="Second content",
+                    position=1,
+                ),
+                session,
+                None,
+            )
+            existing_at_destination = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="Destination",
+                    content="Destination content",
+                    position=4,
+                ),
+                session,
+                None,
+            )
+
+            moved = admin_update_homepage_section(
+                first["id"],
+                HomepageSectionRequest(
+                    title="First",
+                    content="First content",
+                    position=4,
+                ),
+                session,
+                None,
+            )
+            remaining = session.get(HomepageSection, second["id"])
+
+        self.assertEqual(remaining.sort_order, 0)
+        self.assertEqual(moved["position"], 4)
+        self.assertEqual(moved["sort_order"], existing_at_destination["sort_order"] + 1)
+
+    def test_homepage_section_validation_rejects_blank_oversized_and_malformed_input(self):
+        with self.assertRaises(ValueError):
+            HomepageSectionRequest(title=" ", content="Content", position=0)
+        with self.assertRaises(ValueError):
+            HomepageSectionRequest(title="Title", content=" \n ", position=0)
+        with self.assertRaises(ValueError):
+            HomepageSectionRequest(title="x" * 161, content="Content", position=0)
+        with self.assertRaises(ValueError):
+            HomepageSectionRequest(title="Title", content="Content", position=7)
+        with self.assertRaises(ValueError):
+            HomepageSectionRequest(
+                title="Title",
+                content="Content",
+                position=0,
+                unexpected="value",
+            )
+
+    def test_public_homepage_sections_empty_state(self):
+        with Session(self.engine) as session:
+            self.assertEqual(public_homepage_sections(session), [])
+
+    def test_homepage_section_persists_across_sessions(self):
+        with Session(self.engine) as session:
+            created = admin_create_homepage_section(
+                HomepageSectionRequest(
+                    title="Persistent section",
+                    content="Stored in the database",
+                    position=3,
+                ),
+                session,
+                None,
+            )
+
+        with Session(self.engine) as session:
+            stored = session.get(HomepageSection, created["id"])
+
+        self.assertIsNotNone(stored)
+        self.assertEqual(stored.title, "Persistent section")
 
     def test_all_admin_routes_require_admin_secret(self):
         protected_routes = [

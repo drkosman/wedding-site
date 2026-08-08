@@ -4,14 +4,15 @@
 
 The application is a React/TypeScript single-page application backed by a FastAPI/SQLModel API. The root Vercel deployment serves the built SPA and rewrites `/api/*` to the Python function. PostgreSQL is the production database; Docker Compose provides PostgreSQL locally and SQLite remains available for lightweight tests.
 
-The public home page composes the hero, wedding details, public RSVP form, ArcGIS map, schedule, accommodation, travel, and footer. Schedule, accommodation, and travel use public read-only content endpoints. No guest-list or RSVP data is publicly readable.
+The public home page composes the hero, wedding details, public RSVP form, ArcGIS map, schedule, accommodation, travel, and footer. Schedule, accommodation, and travel use public read-only content endpoints. Admin-managed custom sections can be inserted into any gap between the hero and footer; the fixed section order remains defined in code. No guest-list or RSVP data is publicly readable.
 
 Important frontend locations are:
 
-- `pages/Home.tsx` and `components/RSVPSection.tsx` — the normal-domain public journey;
+- `pages/Home.tsx`, `pages/homepageComposition.ts`, and `components/HomepageCustomSection.tsx` — fixed/custom homepage composition and safe plain-text section rendering;
+- `components/RSVPSection.tsx` — the public RSVP entry point;
 - `components/RSVPForm.tsx` and `rsvpPayload.ts` — conditional form state, browser validation, normalization, and submission;
 - `components/TurnstileWidget.tsx` — explicit Cloudflare Turnstile widget loading and lifecycle;
-- `pages/Admin.tsx` — protected paper-invitation, RSVP, reconciliation, CSV, summary, and content workflows;
+- `pages/Admin.tsx` and `components/admin/` — protected paper-invitation, RSVP, reconciliation, CSV, summary, and content workflows;
 - `api/client.ts` and `adminClient.ts` — public/admin API base URLs and admin header handling.
 
 Important backend locations are:
@@ -21,7 +22,7 @@ Important backend locations are:
 - `routers/rsvp.py` — write-only public RSVP endpoint;
 - `abuse.py` — client fingerprinting, database rate limiting, and Turnstile verification;
 - `routers/admin.py` — protected invitation, RSVP, reconciliation, export, summary, and content operations;
-- `database.py` and `backend/migrations/` — table creation, explicit legacy migration, compatibility columns, and default content.
+- `database.py` and `backend/migrations/` — table creation, explicit versioned migrations, compatibility columns, and default content.
 
 ## Public RSVP flow
 
@@ -88,12 +89,15 @@ The dashboard can:
 - explicitly reconcile/unreconcile responses and enforce invitation party limits;
 - delete RSVP submissions and export separate invitation/RSVP CSV files;
 - view aggregate matched/unmatched and attendance summaries;
-- create, edit, reorder, and delete schedule, accommodation, and travel content.
+- create, edit, reorder, and delete schedule, accommodation, and travel content;
+- create, edit, position, reorder, and delete reusable custom homepage sections.
+
+Custom homepage sections use plain text rather than HTML or Markdown. React escapes the title, optional subtitle, and content, while CSS preserves intentional line breaks. An administrator selects one of seven stable placement slots: after the hero or after any of the six fixed content sections. Up/down controls reorder sections that share a slot and save immediately; changing the placement in the edit form moves the section to the end of the selected slot. This permits placement between any current fixed sections without moving the fixed components themselves into the database.
 
 The application does not send email. Real invitation records, RSVP contact data/text, CSV exports, admin secrets, and rate-limit secrets are sensitive and must stay out of source, logs, screenshots, fixtures, and documentation.
 
 ## Persistence conventions
 
-`SQLModel.metadata.create_all()` creates missing tables only. Startup then runs the explicit public-RSVP migration, older additive RSVP/content compatibility checks, and default content seeding. The migration preserves legacy invitation/RSVP rows while removing invitation credential columns and the one-to-one RSVP constraint. It is repeatable but is not a general migration framework.
+`SQLModel.metadata.create_all()` creates missing tables only. Startup then runs the explicit public-RSVP and homepage-section migrations, older additive RSVP/content compatibility checks, and default content seeding. The RSVP migration preserves legacy invitation/RSVP rows while removing invitation credential columns and the one-to-one RSVP constraint. The homepage migration deliberately creates the new section table for existing databases. The migrations are repeatable, but this is not a general migration framework.
 
 API paths are defined without `/api` in routers and mounted with that prefix in `main.py`. Admin routes add `/admin`. Content kinds remain closed to `schedule`, `accommodation`, and `travel`, ordered by `sort_order` then `id`.

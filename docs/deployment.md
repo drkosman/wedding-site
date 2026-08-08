@@ -35,7 +35,7 @@ Register every production/preview hostname that should render the widget in Clou
 
 ## Database initialization and migration
 
-FastAPI calls `create_db_and_tables()` during startup. It creates missing tables, runs the versioned public-RSVP migration, applies older additive RSVP/content compatibility changes, and seeds default content only for empty kinds.
+FastAPI calls `create_db_and_tables()` during startup. It creates missing tables, runs the versioned public-RSVP and homepage-section migrations, applies older additive RSVP/content compatibility changes, and seeds default content only for empty kinds.
 
 Run initialization explicitly from a trusted environment with a direct administrative database connection:
 
@@ -44,7 +44,7 @@ DATABASE_URL='postgresql+psycopg://<role>:<password>@<direct-host>/<database>?ss
   python -m backend.create_tables
 ```
 
-The public-RSVP migration preserves existing guest/response data while cleaning the legacy schema. Test it against a database copy or Neon branch before production. The startup operation is intended to be repeatable, but this repository still does not provide a general migration framework.
+The public-RSVP migration preserves existing guest/response data while cleaning the legacy schema. The homepage-section migration adds the standalone `homepagesection` table and ordering indexes. Test migrations against a database copy or Neon branch before production. The startup operation is intended to be repeatable, but this repository still does not provide a general migration framework.
 
 Neon pooled endpoints are appropriate for bursty serverless request traffic. Use a direct connection for schema administration/migrations that need session behavior; see [Neon connection pooling](https://neon.com/docs/connect/connection-pooling).
 

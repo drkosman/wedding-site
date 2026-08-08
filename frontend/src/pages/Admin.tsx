@@ -10,6 +10,7 @@ import {
   storeAdminSecret,
 } from '../api/adminClient';
 import ContentManager from '../components/admin/ContentManager';
+import HomepageSectionManager from '../components/admin/HomepageSectionManager';
 
 
 type AdminSummary = {
@@ -335,6 +336,8 @@ export default function Admin() {
         {loading && <p className="card text-sm text-muted-foreground">Loading admin data…</p>}
         {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
         {notice && <p className="card border-green-200 text-sm text-green-700">{notice}</p>}
+
+        <HomepageSectionManager secret={secret} />
 
         <div className="grid gap-8 xl:grid-cols-2">
           <ContentManager secret={secret} kind="schedule" title="Schedule Content" fields={scheduleFields} />
