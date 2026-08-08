@@ -1,35 +1,30 @@
 # Local development database
 
-Docker Compose provides PostgreSQL 16 for local development. The volume is owned by Compose, while the FastAPI startup routine creates application tables, applies its limited compatibility updates, and seeds default site content.
+Docker Compose provides PostgreSQL 16 for local development. FastAPI startup creates application tables, runs the explicit public-RSVP migration and older compatibility changes, and seeds default site content.
 
 ## Prerequisites and configuration
 
-- Docker with the Compose plugin (`docker compose`).
-- Backend Python dependencies when running setup or seed commands outside the backend container.
-- A local `backend/.env`, copied from the checked-in example.
+- Docker with the Compose plugin.
+- Backend Python dependencies when running setup outside the container.
+- Local backend/frontend environment files copied from the checked-in examples.
+- Cloudflare Turnstile test widget keys for manual RSVP submission.
 
 ```bash
 cp -n backend/.env.example backend/.env
+cp -n frontend/.env.example frontend/.env
 ```
 
-The example is already configured for the host-exposed Compose database. Set a non-placeholder `ADMIN_SECRET` if you need to exercise `/admin`. Keep `DEV_MODE=true` and `CORS_ORIGINS=http://localhost:5173` for the standard local frontend/backend pair.
+Keep local secrets and connection strings untracked. The backend example targets the host-exposed Compose database. The public endpoint fails closed until its Turnstile and rate-limit configuration is present.
 
 ## Start and initialize
-
-Start only PostgreSQL:
 
 ```bash
 docker compose up -d db
 docker compose exec db pg_isready -U postgres -d wedding
-```
-
-Initialize from the repository root using the backend virtual environment:
-
-```bash
 backend/venv/bin/python -m backend.create_tables
 ```
 
-Starting the backend also performs initialization:
+Starting the backend also initializes the schema:
 
 ```bash
 cd backend
@@ -37,7 +32,7 @@ source venv/bin/activate
 uvicorn app.main:app --reload
 ```
 
-Alternatively, `docker compose up --build` runs PostgreSQL, the backend, and the frontend together. Inside Compose, the backend's `DATABASE_URL` is overridden to use the `db` service hostname.
+Alternatively, `docker compose up --build` runs PostgreSQL, the backend, and the frontend together. The backend container uses the `db` service hostname.
 
 ## Inspect and seed
 
@@ -47,9 +42,9 @@ List tables:
 docker compose exec db psql -U postgres -d wedding -c "\dt"
 ```
 
-Expected application tables are `guest`, `rsvp`, and `contententry`.
+Expected tables include `guest`, `rsvp`, `rsvpratelimitevent`, `contententry`, and `schema_migration`.
 
-Create a disposable guest and print its personal token:
+Create an example private paper-invitation record for the admin reconciliation list:
 
 ```bash
 cd backend
@@ -57,11 +52,11 @@ source venv/bin/activate
 python scripts/seed_guests.py
 ```
 
-Use the token at `http://localhost:5173/?token=<printed-token>`. The seed script creates another guest every time; it has no duplicate check or cleanup.
+The public RSVP form is always available at `http://localhost:5173`; it does not use the seeded record to identify a visitor. After a test submission, use `/admin` to match the RSVP manually.
 
 ## Reset disposable data
 
-This destroys the Compose PostgreSQL volume. Do not use it for any database that must be retained.
+This destroys the Compose PostgreSQL volume. Do not use it for data that must be retained.
 
 ```bash
 docker compose down -v
@@ -69,6 +64,4 @@ docker compose up -d db
 backend/venv/bin/python -m backend.create_tables
 ```
 
-The reset is local-only and does not affect a remote `DATABASE_URL` unless you replace the example configuration. Confirm the target URL before running setup or seed commands.
-
-For model and schema-update details, see [Data model and API](data-and-api.md). Production database handling is in [Deployment](deployment.md).
+The reset is local-only unless the environment file is changed to a remote URL. Confirm the target before running setup or reset commands. Model/migration details are in [Data model and API](data-and-api.md); production handling is in [Deployment](deployment.md).

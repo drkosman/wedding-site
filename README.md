@@ -1,6 +1,6 @@
 # Lucy & Kosta Wedding SPA
 
-Wedding website for Lucy and Kosta with personal RSVP links and an administrative dashboard for guest, response, invitation-email, and site-content management.
+Wedding website for Lucy and Kosta with a public RSVP form and an administrative dashboard for paper invitations, response reconciliation, and site-content management.
 
 The implementation is a React/TypeScript single-page application backed by a FastAPI/SQLModel API. The tracked production guidance targets PostgreSQL on Neon, Docker Compose uses PostgreSQL, and the backend has a SQLite fallback for lightweight development and tests. The root Vercel configuration builds the frontend and exposes the Python API under `/api`.
 
@@ -50,7 +50,7 @@ npm ci
 npm run dev
 ```
 
-The site is available at `http://localhost:5173`, the admin page at `http://localhost:5173/admin`, and the API at `http://localhost:8000/api`. To create a disposable invitation for manual testing, run `python scripts/seed_guests.py` from `backend/`, then open `http://localhost:5173/?token=<printed-token>`.
+The site and RSVP form are available at `http://localhost:5173`, the admin page at `http://localhost:5173/admin`, and the API at `http://localhost:8000/api`. Configure a Cloudflare Turnstile test widget in the frontend and backend environment files before manually submitting the form. To create an example private invitation-list record for admin reconciliation, run `python scripts/seed_guests.py` from `backend/`.
 
 To run the complete development stack in containers instead, populate the two environment files and run:
 
@@ -70,7 +70,11 @@ Copy the checked-in `.env.example` files; never commit populated secrets or conn
 | `ADMIN_SECRET` | Backend | Shared secret required in the `x-admin-secret` header for every admin API request. Admin access is disabled when unset. |
 | `DEV_MODE` | Backend | Enables SQL logging when `true`; the current app also disables FastAPI's interactive docs in this mode. |
 | `CORS_ORIGINS` | Backend | Comma-separated allowed browser origins. |
+| `TURNSTILE_SECRET_KEY` | Backend | Secret used only by the API to verify RSVP challenges. |
+| `TURNSTILE_EXPECTED_HOSTNAME` | Backend | Optional hostname required in successful challenge results. |
+| `RSVP_RATE_LIMIT_SECRET` | Backend | Secret used to HMAC client addresses before rate-limit events are stored. |
 | `VITE_API_URL` | Frontend build/runtime | API base URL; use `/api` for the same-origin Vercel deployment. |
+| `VITE_TURNSTILE_SITE_KEY` | Frontend build/runtime | Public Turnstile widget site key. |
 
 Deployment-specific handling is documented in [Deployment](docs/deployment.md).
 

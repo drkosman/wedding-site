@@ -4,10 +4,11 @@ The implementation is the source of truth. Start with `README.md` and `docs/READ
 
 ## Navigation
 
-- Public/admin UI: `frontend/src/pages`, `frontend/src/components`, `frontend/src/hooks`, and `frontend/src/api`.
+- Public/admin UI: `frontend/src/pages`, `frontend/src/components`, and `frontend/src/api`.
 - API composition/config: `backend/app/main.py` and `backend/app/config.py`.
-- Models and persistence: `backend/app/models.py` and `backend/app/database.py`.
+- Models and persistence: `backend/app/models.py`, `backend/app/database.py`, and `backend/migrations/`.
 - Public endpoints: `backend/app/routers/rsvp.py` and `content.py`.
+- Abuse protection: `backend/app/abuse.py`.
 - Admin/auth endpoints: `backend/app/routers/admin.py` and `utils.py`.
 - Deployment: root `vercel.json`, `api/index.py`, root `requirements.txt`, Dockerfiles, and `docker-compose.yaml`.
 - Authoritative deeper docs: `docs/architecture.md`, `docs/data-and-api.md`, `docs/deployment.md`, and `docs/dev-database.md`.
@@ -15,10 +16,14 @@ The implementation is the source of truth. Start with `README.md` and `docs/READ
 ## Engineering constraints
 
 - Keep the `/api` mounting convention and the `/admin` router prefix in mind when adding routes.
-- Guest tokens and the admin secret are bearer credentials. Never expose real secrets, live tokens, real guest data, RSVP text, exports, or populated environment values in code, tests, logs, or documentation.
-- One guest has at most one mutable RSVP. Server-side party-size authority is `max_guests`; `plus_one_allowed` controls the current UI.
+- The public site and `POST /api/rsvps` do not use invitation credentials. Do not add public guest-list or RSVP lookup endpoints.
+- `Guest` is a private paper-invitation record. `RSVP` stores the submitter's name/email and may be linked to a guest only through explicit admin reconciliation; never auto-match on name or email.
+- Every public submission is a separate record. Email is contact data, not authentication, and must not authorize updates.
+- Public party size is capped at six. `Guest.max_guests` is invitation metadata enforced when an admin reconciles an RSVP; it cannot be trusted or enforced before reconciliation.
+- Public writes must retain server-side Turnstile verification, the honeypot, strict schema limits, and database-backed HMAC rate limiting. Never expose backend secret keys or log full RSVP payloads.
+- The admin secret is a bearer credential. Never expose real secrets, personal data, RSVP text, exports, or populated environment values in code, tests, logs, or documentation.
 - Content kinds are restricted to `schedule`, `accommodation`, and `travel`; preserve deterministic `sort_order`, then `id` ordering.
-- Database startup performs only explicit additive compatibility changes. Do not assume `SQLModel.metadata.create_all()` migrates existing schemas; add and test a deliberate migration path for model changes.
+- Database startup performs only explicit compatibility changes. Do not assume `SQLModel.metadata.create_all()` migrates existing schemas; add and test a deliberate versioned migration for model changes.
 - Preserve unrelated work in the repository. Do not change product behavior during documentation-only tasks.
 
 ## Checks
