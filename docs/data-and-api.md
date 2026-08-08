@@ -6,21 +6,22 @@ All routes below are mounted under `/api`. The implementation is in `backend/app
 
 ```mermaid
 erDiagram
-    GUEST ||--o| RSVP : has
+    GUEST o|--o{ RSVP : "admin reconciles"
     GUEST {
         int id PK
         string name
         string email nullable
-        string token UK
-        boolean plus_one_allowed
         int max_guests
         boolean invite_sent
     }
     RSVP {
         int id PK
-        int guest_id FK,UK
+        int guest_id FK nullable
+        string submitted_name
+        string email
         boolean attending
         int guest_count
+        string additional_guest_names nullable
         boolean sunday_event
         boolean hotel_reservation_requested
         boolean friday_night
@@ -28,7 +29,13 @@ erDiagram
         boolean sunday_night
         string dietary_requirements nullable
         string message nullable
+        datetime created_at
         datetime updated_at
+    }
+    RSVP_RATE_LIMIT_EVENT {
+        int id PK
+        string client_fingerprint
+        datetime created_at
     }
     CONTENT_ENTRY {
         int id PK
@@ -42,72 +49,81 @@ erDiagram
 
 ### Guest and RSVP
 
-A `Guest` is an invitation/party record, not necessarily one individual attendee. Its unique token identifies the invitation. `plus_one_allowed` controls whether the public frontend shows the party-size field, while `max_guests` is the limit enforced by public and admin RSVP writes.
+`Guest` is a private paper-invitation/party record. It is never selected by a public endpoint. `email` is optional invitation metadata, `max_guests` is 1–12, and `invite_sent` tracks physical invitation delivery.
 
-An `RSVP` is the latest response for one guest. The unique foreign key makes the relationship optional one-to-one. Submissions overwrite the response and `updated_at`; there is no audit/history table. Deleting a guest through the admin API explicitly deletes its RSVP first.
+`RSVP` is one self-identifying public submission. `submitted_name` and normalized lowercase `email` are required contact snapshots. `guest_id` is nullable and can be set only through protected admin reconciliation. The relationship is many-to-one so duplicates remain visible. No uniqueness constraint exists on name, email, or `guest_id`.
 
-The backend validates `guest_count >= 1` and rejects counts above the associated guest's `max_guests`. It does not otherwise normalize related choices: declining guests can still have Sunday, hotel, room-night, dietary, or message values, and room-night flags are independent of the hotel-request flag.
+Every public write inserts a record. It never updates based on name/email. Admins can edit or delete a specific record by database ID. A same-email count in the admin response is a duplicate-review signal only.
 
-`GuestRequest` does not currently enforce a positive `max_guests` or consistency between `plus_one_allowed` and `max_guests`. The admin UI maintains that consistency for normal interactive creation, but direct API and CSV clients must do so themselves.
+Public `guest_count` is restricted to 1–6. A declining response must use one and cannot contain Sunday, hotel, room-night, additional-guest, or dietary choices. Attending parties above one require additional guest names. Room nights require a hotel request, and a hotel request requires at least one selected night. The optional message remains available to declining guests.
+
+Text limits are: name 160, email 254, additional guest names 600, dietary requirements 1,000, and message 2,000 characters. Optional text is trimmed and blank text becomes `null`. Unknown request fields are rejected.
+
+### Rate-limit events
+
+`RSVPRateLimitEvent` stores a 64-character HMAC client fingerprint and timestamp. It never stores the raw address. Each non-honeypot attempt is recorded before challenge verification. Events older than one day are removed during later attempts.
 
 ### Content entries
 
-`ContentEntry` stores one ordered item for `schedule`, `accommodation`, or `travel`. `title` is required and trimmed. Other display fields are optional; whitespace-only strings become `null`. `website_url`, used by accommodation entries, must be an absolute `http` or `https` URL.
-
-The model is intentionally shared across content kinds, so not every column is rendered by every section. Public reads order items by `sort_order`, then `id`. Deletion compacts the remaining order. Reordering must provide every entry ID for that kind exactly once.
-
-On database initialization, defaults are inserted only when a content kind has no existing row. Existing content is not overwritten.
+`ContentEntry` stores one ordered item for `schedule`, `accommodation`, or `travel`. `title` is required and trimmed. Other display fields are optional; whitespace-only strings become `null`. `website_url` must be an absolute `http` or `https` URL. Public reads order by `sort_order`, then `id`.
 
 ## Public endpoints
 
 | Method and path | Behavior |
 | --- | --- |
-| `GET /health` | Returns `{ "ok": true }`. Does not query the database. |
-| `GET /guest/{token}` | Finds an invitation by token and returns guest display/capability fields plus the current RSVP, or `404`. The database ID, token, and invite-sent state are omitted. |
-| `POST /rsvp/{token}` | Creates or replaces the current RSVP for the token. Returns `404` for an unknown token, `422` for schema validation failures, and `400` when `guest_count` exceeds `max_guests`. |
+| `GET /health` | Returns `{ "ok": true }` without querying the database. |
+| `POST /rsvps` | Verifies abuse controls and creates a new unmatched RSVP. Returns `201` with a generic status. |
 | `GET /content/{kind}` | Lists ordered public content. Unknown kinds return `404`. |
+
+There is no public guest or RSVP read/search endpoint.
 
 The RSVP request shape is:
 
 ```json
 {
+  "full_name": "Example Guest",
+  "email": "guest@example.com",
   "attending": true,
-  "guest_count": 1,
-  "sunday_event": false,
-  "hotel_reservation_requested": false,
+  "guest_count": 2,
+  "additional_guest_names": "Second Guest",
+  "sunday_event": true,
+  "hotel_reservation_requested": true,
   "friday_night": false,
-  "saturday_night": false,
+  "saturday_night": true,
   "sunday_night": false,
-  "dietary_requirements": null,
-  "message": null
+  "dietary_requirements": "Vegetarian",
+  "message": "Looking forward to it",
+  "website": "",
+  "turnstile_token": "challenge-result"
 }
 ```
 
-Only `attending` is required; the other values shown are schema defaults or nullable fields.
+`website` is the hidden honeypot and must stay empty for genuine visitors. `turnstile_token` is produced by the public widget and is always verified by the backend. Failed verification returns `400`, rate limiting returns `429`, schema failures return `422`, and missing backend protection configuration fails closed. Client-facing errors intentionally omit internal verification details.
 
 ## Admin authorization
 
-Every `/admin/*` endpoint requires an `x-admin-secret` header matching `ADMIN_SECRET`. Comparison uses `hmac.compare_digest`. If the server has no `ADMIN_SECRET`, all admin requests fail. There are no scoped roles: a valid secret grants access to all admin operations, including personal data and destructive endpoints.
+Every `/admin/*` endpoint requires an `x-admin-secret` header matching `ADMIN_SECRET` using constant-time comparison. If the server has no admin secret, all admin requests fail. A valid secret grants all current admin capabilities, so responses and CSVs must be treated as sensitive.
 
-Do not put real secrets, personal tokens, guest data, exported CSV content, or invitation output in documentation or examples.
-
-## Admin guest and RSVP endpoints
+## Admin invitation and RSVP endpoints
 
 | Method and path | Behavior |
 | --- | --- |
-| `POST /admin/guest` | Creates a guest and generates a UUID token. Email is optional. |
-| `GET /admin/guests` | Lists every guest joined to its optional RSVP, including personal tokens and response data. |
-| `POST /admin/guests/bulk` | Creates guests from a UTF-8 multipart CSV upload named `file`. |
-| `GET /admin/guests/export` | Downloads `guests.csv` with guest, token, invitation, and RSVP fields. Treat the file as sensitive. |
-| `PATCH /admin/guest/{guest_id}/invite-sent` | Sets the invitation-sent tracking flag. |
-| `PUT /admin/guest/{guest_id}/rsvp` | Creates or replaces a guest's current RSVP using the public RSVP request shape. |
-| `DELETE /admin/guest/{guest_id}/rsvp` | Deletes the response but keeps the guest. |
-| `DELETE /admin/guest/{guest_id}` | Deletes the guest and its response. |
-| `GET /admin/summary` | Returns record counts for guests, RSVPs, attending/declining responses, Sunday responses, and hotel requests. |
+| `POST /admin/guest` | Creates a paper-invitation record. |
+| `GET /admin/guests` | Lists invitation records with matched RSVP counts. |
+| `POST /admin/guests/bulk` | Imports UTF-8 CSV invitation rows. |
+| `GET /admin/guests/export` | Exports the private invitation list. |
+| `PATCH /admin/guest/{guest_id}/invite-sent` | Updates physical invitation delivery tracking. |
+| `DELETE /admin/guest/{guest_id}` | Deletes an invitation and unmatches, but preserves, linked RSVPs. |
+| `GET /admin/rsvps` | Lists every response, contact field, event choice, timestamp, match, and same-email count. |
+| `GET /admin/rsvps/export` | Exports all RSVP and reconciliation fields. |
+| `PUT /admin/rsvp/{rsvp_id}` | Validates and updates a specific response. |
+| `PATCH /admin/rsvp/{rsvp_id}/reconcile` | Matches/unmatches a response. Matching enforces that invitation's `max_guests`. |
+| `DELETE /admin/rsvp/{rsvp_id}` | Deletes a specific response. |
+| `GET /admin/summary` | Returns invitation, RSVP, matched/unmatched, attendance, Sunday, and hotel counts. |
 
-Bulk import expects a `name` column. It optionally reads `email`, `plus_one_allowed`, and `max_guests`; `plus_one_allowed` is true only when the text equals `true` case-insensitively, and `max_guests` must parse as an integer. Import always creates new guests and tokens: it does not deduplicate, update records, import RSVPs, or import invitation-sent state.
+Bulk invitation import requires `name`; `email` and `max_guests` are optional. Rows are validated through `GuestRequest`. Import creates records without deduplicating or changing RSVP data.
 
-Summary attendance, Sunday, and hotel figures count RSVP records, not the sum of party sizes.
+Summary figures count RSVP records, not party-size totals. Because repeats are separate records, totals may exceed invitation counts until administrators reconcile/delete confirmed duplicates.
 
 ## Admin content endpoints
 
@@ -117,18 +133,18 @@ For each supported `{kind}`:
 | --- | --- |
 | `GET /admin/content/{kind}` | Protected equivalent of the public ordered list. |
 | `POST /admin/content/{kind}` | Creates an entry; omitted `sort_order` appends it. |
-| `PUT /admin/content/{kind}/reorder` | Accepts `{ "ids": [...] }` containing the complete, unique ID set for the kind. |
-| `PUT /admin/content/{kind}/{entry_id}` | Replaces the editable fields of an entry. |
-| `DELETE /admin/content/{kind}/{entry_id}` | Deletes an entry and compacts the remaining order. |
+| `PUT /admin/content/{kind}/reorder` | Accepts `{ "ids": [...] }` containing the complete, unique ID set. |
+| `PUT /admin/content/{kind}/{entry_id}` | Replaces editable fields. |
+| `DELETE /admin/content/{kind}/{entry_id}` | Deletes an entry and compacts order. |
 
-## Schema setup and compatibility updates
+## Schema migration and startup
 
-There is no migration framework or version history. `backend/app/database.py` currently performs only these upgrades for existing tables:
+Startup first creates missing tables, then runs `backend/migrations/versions/v001_public_rsvp.py`. Applied versions are recorded once in `schema_migration`. For legacy databases, that migration:
 
-- makes PostgreSQL `guest.email` nullable;
-- adds/backfills/indexes `guest.token` and adds `guest.invite_sent`;
-- adds `rsvp.guest_count`, Sunday/hotel/night flags;
-- adds `contententry.sort_order`, `updated_at`, and optional text/display columns.
+- preserves invitation rows while removing obsolete invitation credential and plus-one columns;
+- preserves RSVP rows, copying invitation name/email into submitted contact fields where needed;
+- makes `rsvp.guest_id` nullable and removes its uniqueness constraint;
+- adds submitted identity, additional guest names, and creation timestamp columns;
+- creates the indexes required by the new model.
 
-`create_all()` creates missing tables but does not alter arbitrary existing columns. Any future schema change outside this explicit list needs a deliberate migration or a new, safely repeatable compatibility step.
-
+SQLite rebuilds the two related tables transactionally with foreign keys temporarily disabled. PostgreSQL applies explicit alterations and removes the legacy unique constraint by inspection. The migration is repeatable and tested with retained legacy data. The old additive RSVP/content compatibility functions remain only for earlier non-token column versions; `create_all()` alone never alters existing schemas.

@@ -2,78 +2,87 @@
 
 ## Production topology
 
-The tracked configuration describes a single Vercel project backed by PostgreSQL:
+The tracked configuration describes one Vercel project backed by PostgreSQL:
 
-1. Root `vercel.json` runs `cd frontend && npm install && npm run build`.
-2. Vite writes the static application to `frontend/dist`, Vercel's configured output directory.
-3. `/api/(.*)` is rewritten to the Python function at `api/index.py`.
-4. All other paths are rewritten to `/index.html` for SPA fallback.
-5. `api/index.py` imports `backend.main:app`, which re-exports the FastAPI app.
-6. FastAPI connects through SQLModel/SQLAlchemy and the Psycopg 3 driver using `DATABASE_URL`.
+1. Root `vercel.json` builds the frontend and serves `frontend/dist`.
+2. `/api/(.*)` is rewritten to `api/index.py`; other paths fall back to the SPA.
+3. `api/index.py` imports the FastAPI application from `backend.main`.
+4. FastAPI uses SQLModel/SQLAlchemy and Psycopg 3 with `DATABASE_URL`.
+5. The public browser loads Cloudflare Turnstile and sends its result with `POST /api/rsvps`.
+6. FastAPI validates that result directly with Cloudflare before storing the RSVP.
 
-The root `requirements.txt` supplies Python dependencies to the Vercel build; `backend/requirements.txt` supplies the same dependency set for local/backend-container use. `frontend/vercel.json` is a frontend-only SPA fallback configuration, but root deployment uses the root file.
-
-The repository does not contain Vercel project metadata, DNS/custom-domain configuration, CI workflows, or evidence of automatic database provisioning. Confirm those settings in the hosting control planes.
+The repository does not contain Vercel project metadata, DNS settings, Cloudflare widget provisioning, CI workflows, or database provisioning. Configure those in their respective control planes.
 
 ## Environment variables
 
-Configure values in Vercel project settings. This table intentionally lists names and formats only.
+Configure these names in Vercel project settings. Values are intentionally omitted.
 
-| Name | Scope | Production guidance |
+| Name | Scope | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | FastAPI runtime | SQLAlchemy-compatible PostgreSQL URL. Use the Psycopg dialect form (`postgresql+psycopg://...`) expected by this code and require TLS. A Neon pooled endpoint is appropriate for the serverless API. |
-| `ADMIN_SECRET` | FastAPI runtime | Strong shared secret. If absent, all admin API calls are denied. Rotate it if exposed. |
-| `DEV_MODE` | FastAPI runtime | Set to `false` for production to disable SQL echo. In the current implementation this also enables FastAPI `/docs` and `/redoc`. |
-| `CORS_ORIGINS` | FastAPI runtime | Comma-separated exact browser origins. Include every intended production/preview origin, with no path. |
-| `VITE_API_URL` | Frontend build | `/api` for the same-origin topology. Vite embeds this value at build time, so redeploy after changing it. |
+| `DATABASE_URL` | FastAPI runtime | SQLAlchemy-compatible PostgreSQL URL using the Psycopg dialect and TLS. A pooled Neon endpoint suits serverless request traffic. |
+| `ADMIN_SECRET` | FastAPI runtime | Shared secret for every admin request; absence disables admin access. |
+| `DEV_MODE` | FastAPI runtime | Controls SQL echo and the current interactive-doc behavior. Use production-safe settings. |
+| `CORS_ORIGINS` | FastAPI runtime | Comma-separated exact browser origins. |
+| `TURNSTILE_SECRET_KEY` | FastAPI runtime | Backend-only Cloudflare verification secret. |
+| `TURNSTILE_EXPECTED_HOSTNAME` | FastAPI runtime | Optional exact hostname accepted from verification results. |
+| `RSVP_RATE_LIMIT_SECRET` | FastAPI runtime | Secret used to HMAC client addresses for database-backed limiting. |
+| `VITE_API_URL` | Frontend build | `/api` for the same-origin topology. |
+| `VITE_TURNSTILE_SITE_KEY` | Frontend build | Public site key for the Turnstile widget. |
 
-Do not use `VITE_API_BASE_URL`; the frontend reads only `VITE_API_URL`. Do not commit populated `.env` files, database URLs, passwords, admin secrets, personal RSVP tokens, or guest exports.
+Vite embeds its variables at build time, so redeploy after changing them. Never expose `TURNSTILE_SECRET_KEY` or `RSVP_RATE_LIMIT_SECRET` through a `VITE_*` name. Do not use `VITE_API_BASE_URL`; the frontend reads `VITE_API_URL`.
 
-Neon provides pooled hostnames for bursty/serverless application traffic. Its official guidance recommends a direct connection for schema migrations and similar session-dependent tooling. This repository currently initializes schemas through the application rather than a separate migration connection, so validate schema changes against the chosen endpoint before production rollout. See [Neon connection pooling](https://neon.com/docs/connect/connection-pooling).
+Register every production/preview hostname that should render the widget in Cloudflare. The frontend uses the action name `rsvp`; the backend requires that action in the verification result. If `TURNSTILE_EXPECTED_HOSTNAME` is configured, it must exactly match the verified hostname. Use Cloudflare's documented test keys for local/automated challenge testing, not production keys.
 
-## Database initialization
+## Database initialization and migration
 
-FastAPI calls `create_db_and_tables()` during startup. It creates missing SQLModel tables, applies the limited compatibility alterations listed in [Data model and API](data-and-api.md#schema-setup-and-compatibility-updates), and seeds default schedule/accommodation/travel content for empty kinds.
+FastAPI calls `create_db_and_tables()` during startup. It creates missing tables, runs the versioned public-RSVP migration, applies older additive RSVP/content compatibility changes, and seeds default content only for empty kinds.
 
-To initialize explicitly from a trusted environment with a direct administrative database connection:
+Run initialization explicitly from a trusted environment with a direct administrative database connection:
 
 ```bash
 DATABASE_URL='postgresql+psycopg://<role>:<password>@<direct-host>/<database>?sslmode=require' \
   python -m backend.create_tables
 ```
 
-Run that command from the repository root with the root/backend Python dependencies installed. The operation is intended to be repeatable, but it is not a replacement for general schema migrations and it does not validate that every deployed schema detail matches the models.
+The public-RSVP migration preserves existing guest/response data while cleaning the legacy schema. Test it against a database copy or Neon branch before production. The startup operation is intended to be repeatable, but this repository still does not provide a general migration framework.
+
+Neon pooled endpoints are appropriate for bursty serverless request traffic. Use a direct connection for schema administration/migrations that need session behavior; see [Neon connection pooling](https://neon.com/docs/connect/connection-pooling).
 
 ## Deployment process
 
 Before deploying:
 
-1. Run the frontend lint, unit test, and production build plus the backend unit tests from the root README.
-2. Review model changes for an explicit schema-upgrade path; `create_all()` alone does not alter existing tables.
-3. Configure all environment variables for the intended Vercel environment (production and previews are separate settings).
-4. Deploy from the repository root so root `vercel.json`, `requirements.txt`, and `api/index.py` are included.
-5. Verify `/api/health`, a public content request, one authorized admin read, and an RSVP flow using a non-production test guest.
+1. Run frontend lint, tests, and production build plus backend tests.
+2. Review every model change for a deliberate migration path.
+3. Configure backend and frontend variables in each Vercel environment.
+4. Configure Turnstile hostnames and confirm the frontend/backend keys belong to the same widget.
+5. Initialize/migrate the database using a trusted direct connection.
+6. Deploy from the repository root.
+7. Verify `/api/health`, one public content request, the root RSVP form, challenge failure, one successful test RSVP, and an authorized admin reconciliation.
 
-The repository contains no CI/CD workflow or scripted rollback. Hosting deployment/rollback and Neon restore/branch policies are operational concerns outside the tracked code.
+The repository contains no scripted rollback. Hosting rollback and Neon restore/branch policies remain operational responsibilities.
 
-## Production considerations
+## Privacy and security considerations
 
-- RSVP query tokens are bearer credentials and are persisted in the guest's browser `localStorage`. Avoid analytics/logging setups that capture full query strings.
-- The admin secret is held in `sessionStorage` and sent on every admin call. `/admin` has no account login, rate limiting, or role separation.
-- Admin guest responses, tokens, CSV downloads, and generated invitation templates contain sensitive information.
-- CORS is permissive for methods and headers but restricts origins to `CORS_ORIGINS`; an incorrect origin presents as a browser CORS failure.
-- Public schedule, accommodation, and travel sections require the API/database. Static wedding details and imagery still render if those content requests fail.
-- The ArcGIS map requires browser access to ArcGIS-hosted basemap, elevation, and feature-layer services.
+- The public API is write-only for RSVP data; it exposes no guest-list, contact lookup, or response lookup.
+- Turnstile validation is server-side. Challenge results are short-lived/single-use and are not invitation or RSVP credentials.
+- Rate-limit rows contain keyed fingerprints rather than raw addresses and are removed after one day during later attempts.
+- Public submissions with the same email remain separate; email never authenticates an update.
+- Admin responses and CSV exports contain names, emails, and RSVP details. Keep them out of logs, analytics, issue attachments, and public storage.
+- The admin secret remains in browser `sessionStorage` and is sent on every admin call. The current app has no account roles or admin rate limit.
+- SQL echo must be disabled in production so query parameters do not expose personal data through database logs.
+- CORS restricts browser origins but does not replace endpoint authorization or bot protection.
 
 ## Troubleshooting
 
-| Symptom | Repository-supported check |
+| Symptom | Check |
 | --- | --- |
-| Frontend calls `localhost:8000` in production | Confirm `VITE_API_URL=/api` was present during the frontend build, then rebuild/redeploy. |
-| Admin unlock fails | Confirm `ADMIN_SECRET` exists at runtime and the browser request includes the exact `x-admin-secret` value. |
-| Browser blocks API calls | Confirm the page's exact origin is present in comma-separated `CORS_ORIGINS`. |
-| API starts but tables/columns fail | Run `python -m backend.create_tables` with a direct connection and compare the required change with the limited compatibility list; add a deliberate migration for unsupported changes. |
-| Database connections fail or time out | Check the URL dialect, TLS parameters, Neon endpoint state, credentials, and whether the connection is pooled/direct as appropriate. |
-| Dynamic content is missing | Check `GET /api/content/{kind}` and database connectivity. Empty kinds are seeded only during database initialization. |
-| `/admin` or another browser path returns 404 | Deploy from the root and confirm the SPA catch-all rewrite in root `vercel.json` is active. |
-
+| RSVP challenge does not render | Confirm `VITE_TURNSTILE_SITE_KEY`, allowed widget hostname, browser access to Cloudflare, then rebuild. |
+| Every RSVP returns verification failure | Confirm `TURNSTILE_SECRET_KEY`, widget pairing, action `rsvp`, and optional expected hostname. |
+| RSVP returns `429` | Wait for the 15-minute window; inspect only aggregate rate-limit state, not personal RSVP payloads. |
+| RSVP returns `503` or fails closed | Confirm backend abuse-protection variables are present. |
+| Admin unlock fails | Confirm `ADMIN_SECRET` and the `x-admin-secret` request header. |
+| Browser blocks API calls | Confirm the exact origin in `CORS_ORIGINS`. |
+| Tables/columns fail at startup | Run `python -m backend.create_tables` through a direct connection and inspect the versioned migration path. |
+| Frontend calls localhost in production | Confirm `VITE_API_URL=/api`, then rebuild/redeploy. |
+| A browser path returns 404 | Deploy from the root and confirm the SPA catch-all rewrite. |

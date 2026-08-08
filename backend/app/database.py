@@ -1,9 +1,13 @@
 from sqlalchemy import inspect, text
 from sqlmodel import SQLModel, create_engine, Session, select
-from uuid import uuid4
 
 from .config import DATABASE_URL, IS_DEV
 from .models import ContentEntry
+
+try:
+    from backend.migrations.versions.v001_public_rsvp import upgrade as upgrade_public_rsvp
+except ModuleNotFoundError:  # Backend container imports `app` from /app.
+    from migrations.versions.v001_public_rsvp import upgrade as upgrade_public_rsvp
 
 BOOLEAN_DEFAULT_FALSE = {
     "sunday_event",
@@ -21,55 +25,10 @@ engine = create_engine(
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
-    ensure_guest_columns()
+    upgrade_public_rsvp(engine)
     ensure_rsvp_columns()
     ensure_content_entry_columns()
     seed_default_content_entries()
-
-
-def ensure_guest_columns():
-    inspector = inspect(engine)
-
-    if not inspector.has_table("guest"):
-        return
-
-    columns = {column["name"]: column for column in inspector.get_columns("guest")}
-    email_column = columns.get("email")
-
-    if (
-        email_column
-        and not email_column["nullable"]
-        and engine.dialect.name == "postgresql"
-    ):
-        with engine.begin() as connection:
-            connection.execute(text("ALTER TABLE guest ALTER COLUMN email DROP NOT NULL"))
-
-    with engine.begin() as connection:
-        if "token" not in columns:
-            connection.execute(text("ALTER TABLE guest ADD COLUMN token VARCHAR"))
-
-        if "invite_sent" not in columns:
-            default = "false" if engine.dialect.name == "postgresql" else "0"
-            connection.execute(
-                text(
-                    "ALTER TABLE guest ADD COLUMN invite_sent "
-                    f"BOOLEAN NOT NULL DEFAULT {default}"
-                )
-            )
-
-        rows_missing_tokens = connection.execute(
-            text("SELECT id FROM guest WHERE token IS NULL OR token = ''")
-        ).all()
-
-        for row in rows_missing_tokens:
-            connection.execute(
-                text("UPDATE guest SET token = :token WHERE id = :id"),
-                {"token": str(uuid4()), "id": row.id},
-            )
-
-        connection.execute(
-            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_guest_token_unique ON guest (token)")
-        )
 
 
 def ensure_rsvp_columns():

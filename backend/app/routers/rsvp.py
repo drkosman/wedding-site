@@ -1,89 +1,61 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlmodel import Session
+
+from ..abuse import (
+    fingerprint_client,
+    get_client_ip,
+    record_rate_limit_event,
+    verify_turnstile,
+)
 from ..database import get_session
-from ..models import Guest, RSVP, RSVPRequest, GuestRequest
-from datetime import datetime
+from ..models import PublicRSVPRequest, RSVP, utcnow
 
-router = APIRouter()
-   
-@router.get("/guest/{token}")
-def get_guest(token: str, session: Session = Depends(get_session)):
-    statement = select(Guest).where(Guest.token == token)
-    guest = session.exec(statement).first()
 
-    if not guest:
-        raise HTTPException(status_code=404, detail="Guest not found")
+router = APIRouter(tags=["RSVP"])
 
-    rsvp = guest.rsvp
 
-    return {
-        "name": guest.name,
-        "email": guest.email,
-        "plus_one_allowed": guest.plus_one_allowed,
-        "max_guests": guest.max_guests,
-        "rsvp": {
-            "attending": rsvp.attending,
-            "guest_count": rsvp.guest_count,
-            "sunday_event": rsvp.sunday_event,
-            "hotel_reservation_requested": rsvp.hotel_reservation_requested,
-            "friday_night": rsvp.friday_night,
-            "saturday_night": rsvp.saturday_night,
-            "sunday_night": rsvp.sunday_night,
-            "dietary_requirements": rsvp.dietary_requirements,
-            "message": rsvp.message,
-        } if rsvp else None,
-    }
-    
-@router.post("/rsvp/{token}")
+def create_public_rsvp(payload: PublicRSVPRequest, session: Session) -> RSVP:
+    now = utcnow()
+    rsvp = RSVP(
+        submitted_name=payload.full_name,
+        email=payload.email,
+        attending=payload.attending,
+        guest_count=payload.guest_count,
+        additional_guest_names=payload.additional_guest_names,
+        sunday_event=payload.sunday_event,
+        hotel_reservation_requested=payload.hotel_reservation_requested,
+        friday_night=payload.friday_night,
+        saturday_night=payload.saturday_night,
+        sunday_night=payload.sunday_night,
+        dietary_requirements=payload.dietary_requirements,
+        message=payload.message,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(rsvp)
+    session.commit()
+    session.refresh(rsvp)
+    return rsvp
+
+
+@router.post("/rsvps", status_code=status.HTTP_201_CREATED)
 def submit_rsvp(
-    token: str,
-    payload: RSVPRequest,
+    payload: PublicRSVPRequest,
+    request: Request,
     session: Session = Depends(get_session),
 ):
-    guest = session.exec(
-        select(Guest).where(Guest.token == token)
-    ).first()
+    # Quietly accept the honeypot so simple bots do not learn how to bypass it.
+    if payload.website:
+        return {"status": "success"}
 
-    if not guest:
-        raise HTTPException(status_code=404, detail="Guest not found")
+    client_ip = get_client_ip(request)
+    record_rate_limit_event(session, fingerprint_client(client_ip))
 
-    if payload.guest_count > guest.max_guests:
+    if not verify_turnstile(payload.turnstile_token, client_ip):
         raise HTTPException(
             status_code=400,
-            detail=f"Guest count cannot exceed {guest.max_guests}",
+            detail="Verification failed. Please refresh the challenge and try again.",
         )
 
-    existing = session.exec(
-        select(RSVP).where(RSVP.guest_id == guest.id)
-    ).first()
-
-    if existing:
-        existing.attending = payload.attending
-        existing.guest_count = payload.guest_count
-        existing.sunday_event = payload.sunday_event
-        existing.hotel_reservation_requested = payload.hotel_reservation_requested
-        existing.friday_night = payload.friday_night
-        existing.saturday_night = payload.saturday_night
-        existing.sunday_night = payload.sunday_night
-        existing.dietary_requirements = payload.dietary_requirements
-        existing.message = payload.message
-        existing.updated_at = datetime.utcnow()
-        session.add(existing)
-    else:
-        rsvp = RSVP(
-            guest_id=guest.id,
-            attending=payload.attending,
-            guest_count=payload.guest_count,
-            sunday_event=payload.sunday_event,
-            hotel_reservation_requested=payload.hotel_reservation_requested,
-            friday_night=payload.friday_night,
-            saturday_night=payload.saturday_night,
-            sunday_night=payload.sunday_night,
-            dietary_requirements=payload.dietary_requirements,
-            message=payload.message,
-        )
-        session.add(rsvp)
-
-    session.commit()
-
+    create_public_rsvp(payload, session)
     return {"status": "success"}
