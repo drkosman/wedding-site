@@ -1,96 +1,78 @@
-# Wedding SPA
+# Lucy & Kosta Wedding SPA
 
-Single-page wedding website with token-based RSVP links, a FastAPI backend, and guest admin endpoints for import/export.
+Wedding website for Lucy and Kosta with personal RSVP links and an administrative dashboard for guest, response, invitation-email, and site-content management.
 
-## Stack
+The implementation is a React/TypeScript single-page application backed by a FastAPI/SQLModel API. The tracked production guidance targets PostgreSQL on Neon, Docker Compose uses PostgreSQL, and the backend has a SQLite fallback for lightweight development and tests. The root Vercel configuration builds the frontend and exposes the Python API under `/api`.
 
-- Frontend: React, TypeScript, Vite, Tailwind CSS
-- Backend: FastAPI, SQLModel, PostgreSQL
-- Map: ArcGIS web components and ArcGIS JS API
+## Repository layout
 
-## Local Development
+- `frontend/` — Vite, React 19, TypeScript, Tailwind CSS 4, Vitest, and the ArcGIS-based map.
+- `backend/app/` — FastAPI application, SQLModel models, database startup logic, and public/admin routers.
+- `backend/tests/` — backend unit tests using temporary or in-memory SQLite databases.
+- `api/index.py` — Vercel Python function entrypoint.
+- `docs/` — architecture, data/API, deployment, and local database documentation.
+- `docker-compose.yaml` — local PostgreSQL, API, and frontend services.
+- `vercel.json` — production build and rewrite topology.
 
-`docker-compose.yaml` is for local development only.
-Production deployment uses Vercel (frontend + serverless API) and Neon (Postgres).
+## Prerequisites
 
-1. Copy environment examples:
+- Node.js 22 (the version in `frontend/.nvmrc`) and npm.
+- Python 3.12 (matching `backend/Dockerfile`) and `venv`.
+- Docker with Compose, when using the recommended local PostgreSQL service.
 
-   ```bash
-   cp backend/.env.example backend/.env
-   cp frontend/.env.example frontend/.env
-   ```
+## Local development
 
-2. Start Postgres with Docker:
-
-   ```bash
-   docker compose up -d db
-   ```
-
-   See [docs/dev-database.md](docs/dev-database.md) for full dev database deployment and reset instructions.
-
-3. Run the backend:
-
-   ```bash
-   cd backend
-   source venv/bin/activate
-   uvicorn app.main:app --reload
-   ```
-
-4. Run the frontend:
-
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-The frontend defaults to `http://localhost:8000/api`.
-
-## Local Environment Variables
-
-`backend/.env`
+From the repository root:
 
 ```bash
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/wedding
-ADMIN_SECRET=replace-me
-DEV_MODE=true
-CORS_ORIGINS=http://localhost:5173
+cp -n backend/.env.example backend/.env
+cp -n frontend/.env.example frontend/.env
+docker compose up -d db
+
+python3 -m venv backend/venv
+backend/venv/bin/pip install -r backend/requirements.txt
+backend/venv/bin/python -m backend.create_tables
 ```
 
-`frontend/.env`
-
-```bash
-VITE_API_URL=http://localhost:8000/api
-```
-
-## RSVP Links
-
-Seed a test guest and print their token:
+Run the backend:
 
 ```bash
 cd backend
 source venv/bin/activate
-python scripts/seed_guests.py
+uvicorn app.main:app --reload
 ```
 
-Open the site with `?token=<printed-token>` appended to the frontend URL.
+In another terminal, run the frontend:
 
-## Admin API
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-Admin endpoints require the `x-admin-secret` header matching `ADMIN_SECRET`.
+The site is available at `http://localhost:5173`, the admin page at `http://localhost:5173/admin`, and the API at `http://localhost:8000/api`. To create a disposable invitation for manual testing, run `python scripts/seed_guests.py` from `backend/`, then open `http://localhost:5173/?token=<printed-token>`.
 
-- `POST /api/admin/guest`
-- `GET /api/admin/guests`
-- `POST /api/admin/guests/bulk`
-- `GET /api/admin/guests/export`
-- `GET /api/admin/summary`
-- `PATCH /api/admin/guest/{guest_id}/invite-sent`
+To run the complete development stack in containers instead, populate the two environment files and run:
 
-Public RSVP endpoints:
+```bash
+docker compose up --build
+```
 
-- `GET /api/guest/{token}`
-- `POST /api/rsvp/{token}`
-- `GET /api/health`
+See [Local development database](docs/dev-database.md) for database lifecycle and reset commands.
+
+## Environment configuration
+
+Copy the checked-in `.env.example` files; never commit populated secrets or connection strings.
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Backend | SQLAlchemy/SQLModel database URL. Defaults to a local SQLite file when unset. |
+| `ADMIN_SECRET` | Backend | Shared secret required in the `x-admin-secret` header for every admin API request. Admin access is disabled when unset. |
+| `DEV_MODE` | Backend | Enables SQL logging when `true`; the current app also disables FastAPI's interactive docs in this mode. |
+| `CORS_ORIGINS` | Backend | Comma-separated allowed browser origins. |
+| `VITE_API_URL` | Frontend build/runtime | API base URL; use `/api` for the same-origin Vercel deployment. |
+
+Deployment-specific handling is documented in [Deployment](docs/deployment.md).
 
 ## Checks
 
@@ -104,30 +86,13 @@ cd ..
 backend/venv/bin/python -m unittest discover -s backend/tests
 ```
 
-## Deployment (Vercel + Neon)
+There is no separately configured backend linter or static type checker.
 
-This repository deploys as:
+## Documentation
 
-- Frontend static app from `frontend/dist`
-- FastAPI serverless function entrypoint at `api/index.py`
-- Rewrites configured in root `vercel.json`
+Start with the [documentation index](docs/README.md):
 
-### Required Vercel Environment Variables
-
-```bash
-DATABASE_URL=postgresql+psycopg://neondb_owner:<pw>@ep-morning-sun-a9atitjc-pooler.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require
-CORS_ORIGINS=https://your-vercel-domain.vercel.app
-DEV_MODE=false
-VITE_API_URL=/api
-ADMIN_SECRET=replace-me
-```
-
-### Database Table Setup (Neon)
-
-Run this command against your Neon database URL to create/update tables:
-
-```bash
-DATABASE_URL="postgresql+psycopg:///neondb_owner:<Password>@ep-morning-sun-a9atitjc.gwc.azure.neon.tech/wedding?sslmode=require&channel_binding=require" python -m backend.create_tables
-```
-
-This project does not currently include Alembic migrations, so `create_tables` is the deployment setup path.
+- [Architecture and workflows](docs/architecture.md)
+- [Data model and API](docs/data-and-api.md)
+- [Deployment](docs/deployment.md)
+- [Local development database](docs/dev-database.md)
