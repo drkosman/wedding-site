@@ -15,6 +15,15 @@ TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY")
 TURNSTILE_EXPECTED_HOSTNAME = os.getenv("TURNSTILE_EXPECTED_HOSTNAME")
 RSVP_RATE_LIMIT_SECRET = os.getenv("RSVP_RATE_LIMIT_SECRET")
 
+RSVP_NOTIFICATION_EMAILS = [
+    email.strip()
+    for email in os.getenv("RSVP_NOTIFICATION_EMAILS", "").split(",")
+    if email.strip()
+]
+RSVP_NOTIFICATION_FROM_EMAIL = os.getenv("RSVP_NOTIFICATION_FROM_EMAIL")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RSVP_ADMIN_URL = os.getenv("RSVP_ADMIN_URL")
+
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")

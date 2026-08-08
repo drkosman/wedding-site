@@ -88,11 +88,13 @@ Text limits are: name 160, email 254, additional guest names 600, dietary requir
 | Method and path | Behavior |
 | --- | --- |
 | `GET /health` | Returns `{ "ok": true }` without querying the database. |
-| `POST /rsvps` | Verifies abuse controls and creates a new unmatched RSVP. Returns `201` with a generic status. |
+| `POST /rsvps` | Verifies abuse controls, creates a new unmatched RSVP, then attempts an admin email notification. Returns `201` with a generic status even if post-commit notification delivery fails. |
 | `GET /content/{kind}` | Lists ordered public content. Unknown kinds return `404`. |
 | `GET /homepage-sections` | Lists custom homepage sections by `position`, `sort_order`, then `id`. Timestamps are omitted. |
 
 There is no public guest or RSVP read/search endpoint.
+
+Every successful public insert is a new submission and, when configured, gets a “New RSVP” admin notification. Same-name or same-email repeats are not updates and notify separately. Protected admin edits do not send notifications. Notification content deliberately omits the submitter's email, additional guest names, dietary information, message, and other detailed fields; the admin page remains canonical.
 
 The RSVP request shape is:
 

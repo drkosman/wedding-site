@@ -32,6 +32,7 @@ sequenceDiagram
     participant Turnstile as Cloudflare Turnstile
     participant API as FastAPI
     participant DB as PostgreSQL
+    participant Email as Resend
 
     Guest->>Guest: Open the normal site URL
     Guest->>Guest: Enter name, email, and RSVP details
@@ -42,6 +43,8 @@ sequenceDiagram
     API->>Turnstile: Verify challenge server-side
     Turnstile-->>API: Validation result
     API->>DB: Insert a new unmatched RSVP
+    API->>Email: Send concise admin notification
+    Note over API,Email: Delivery failure is logged and does not change the committed RSVP
     API-->>Guest: Generic success status
     Guest->>Guest: Show clear success state
 ```
@@ -65,11 +68,11 @@ Missing abuse-protection secrets fail closed. Neither backend secret is sent to 
 
 ## Duplicate submissions and future corrections
 
-Every public submission creates a new `RSVP`, even when normalized name/email values match an existing record. This avoids treating an email address as authentication, allows legitimately shared addresses, preserves accidental/malicious repeats for review, and prevents an unauthenticated visitor from overwriting another response.
+Every public submission creates a new `RSVP`, even when normalized name/email values match an existing record. This avoids treating an email address as authentication, allows legitimately shared addresses, preserves accidental/malicious repeats for review, and prevents an unauthenticated visitor from overwriting another response. Each persisted public submission therefore produces a separate “New RSVP” notification when notifications are configured. Protected admin edits do not send “new” or “updated” notifications.
 
 The admin list shows the count of submissions using the same normalized email as a review signal. It is not proof that records represent the same person. Admins can explicitly match or unmatch each RSVP and can delete a confirmed unwanted duplicate.
 
-The model supports a future confirmation/correction workflow because each RSVP has its own stable ID, contact snapshot, timestamps, and optional invitation relationship. A future email feature should issue a separate random management secret, store only its hash, and authorize only a narrowly scoped review/change-request flow. Email alone must not authorize changes. No confirmation email or management secret is implemented now.
+The model supports a future guest confirmation/correction workflow because each RSVP has its own stable ID, contact snapshot, timestamps, and optional invitation relationship. Such a feature should issue a separate random management secret, store only its hash, and authorize only a narrowly scoped review/change-request flow. Email alone must not authorize changes. The current admin notification is one-way and contains no guest management credential.
 
 ## Invitation limits and reconciliation
 
@@ -94,7 +97,13 @@ The dashboard can:
 
 Custom homepage sections use plain text rather than HTML or Markdown. React escapes the title, optional subtitle, and content, while CSS preserves intentional line breaks. An administrator selects one of seven stable placement slots: after the hero or after any of the six fixed content sections. Up/down controls reorder sections that share a slot and save immediately; changing the placement in the edit form moves the section to the end of the selected slot. This permits placement between any current fixed sections without moving the fixed components themselves into the database.
 
-The application does not send email. Real invitation records, RSVP contact data/text, CSV exports, admin secrets, and rate-limit secrets are sensitive and must stay out of source, logs, screenshots, fixtures, and documentation.
+## RSVP notifications
+
+After the RSVP transaction commits, the API sends a plain-text notification to the configured wedding-admin recipients through a small Resend HTTP adapter. The subject identifies the submitter; the body is limited to their name, attendance, party size, applicable accommodation request, UTC submission time, and optional admin link. Email address, additional guest names, dietary/medical details, private messages, and other RSVP text remain in the admin interface.
+
+The delivery call has a short timeout and an RSVP-ID-based idempotency key. It runs after persistence and is isolated from the transaction: provider, network, or partial-configuration failures produce a metadata-only server error and the guest still receives the normal success response. An empty `RSVP_NOTIFICATION_EMAILS` setting disables delivery for local development and tests.
+
+Real invitation records, RSVP contact data/text, CSV exports, provider credentials, admin secrets, and rate-limit secrets are sensitive and must stay out of source, logs, screenshots, fixtures, and documentation.
 
 ## Persistence conventions
 
