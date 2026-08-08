@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from pydantic import ValidationError
 from sqlmodel import Session, SQLModel, create_engine, select
 from starlette.requests import Request
 
-from app import config
+from app import config, rsvp_notifications
 from app.abuse import RATE_LIMIT_WINDOW_MAX, fingerprint_client, record_rate_limit_event
 from app.models import PublicRSVPRequest, RSVP, RSVPRateLimitEvent
 from app.routers import rsvp as rsvp_router
@@ -53,10 +54,22 @@ class RSVPRouteTests(unittest.TestCase):
         self.engine = create_engine("sqlite://")
         SQLModel.metadata.create_all(self.engine)
         self.original_rate_secret = config.RSVP_RATE_LIMIT_SECRET
+        self.original_notification_emails = config.RSVP_NOTIFICATION_EMAILS
+        self.original_notification_from_email = config.RSVP_NOTIFICATION_FROM_EMAIL
+        self.original_resend_api_key = config.RESEND_API_KEY
+        self.original_admin_url = config.RSVP_ADMIN_URL
         config.RSVP_RATE_LIMIT_SECRET = "test-rate-limit-secret"
+        config.RSVP_NOTIFICATION_EMAILS = []
+        config.RSVP_NOTIFICATION_FROM_EMAIL = None
+        config.RESEND_API_KEY = None
+        config.RSVP_ADMIN_URL = None
 
     def tearDown(self):
         config.RSVP_RATE_LIMIT_SECRET = self.original_rate_secret
+        config.RSVP_NOTIFICATION_EMAILS = self.original_notification_emails
+        config.RSVP_NOTIFICATION_FROM_EMAIL = self.original_notification_from_email
+        config.RESEND_API_KEY = self.original_resend_api_key
+        config.RSVP_ADMIN_URL = self.original_admin_url
 
     def submit(self, payload: PublicRSVPRequest, ip: str = "203.0.113.20"):
         with Session(self.engine) as session:
@@ -109,12 +122,84 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertIsNone(stored.dietaries)
 
     def test_repeated_name_and_email_create_separate_submissions(self):
-        self.submit(valid_payload(), ip="203.0.113.21")
-        self.submit(valid_payload(message="A corrected response"), ip="203.0.113.21")
+        config.RSVP_NOTIFICATION_EMAILS = ["lucy@example.com", "kosta@example.com"]
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "Wedding RSVP <rsvp@example.com>"
+        config.RESEND_API_KEY = "server-side-test-key"
+        with patch.object(rsvp_notifications, "urlopen") as send_email:
+            self.submit(valid_payload(), ip="203.0.113.21")
+            self.submit(valid_payload(message="A corrected response"), ip="203.0.113.21")
 
         with Session(self.engine) as session:
             stored = session.exec(select(RSVP)).all()
         self.assertEqual(len(stored), 2)
+        self.assertEqual(send_email.call_count, 2)
+        subjects = [
+            json.loads(call.args[0].data)["subject"]
+            for call in send_email.call_args_list
+        ]
+        self.assertEqual(subjects, ["New RSVP — Test Guest", "New RSVP — Test Guest"])
+
+    def test_successful_submission_sends_concise_notification_to_configured_recipients(self):
+        config.RSVP_NOTIFICATION_EMAILS = ["lucy@example.com", "kosta@example.com"]
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "Wedding RSVP <rsvp@example.com>"
+        config.RESEND_API_KEY = "server-side-test-key"
+        config.RSVP_ADMIN_URL = "https://wedding.example/admin"
+
+        with patch.object(rsvp_notifications, "urlopen") as send_email:
+            response = self.submit(valid_payload())
+
+        request = send_email.call_args.args[0]
+        email = json.loads(request.data)
+        self.assertEqual(response, {"status": "success"})
+        self.assertEqual(email["to"], ["lucy@example.com", "kosta@example.com"])
+        self.assertEqual(email["from"], "Wedding RSVP <rsvp@example.com>")
+        self.assertEqual(email["subject"], "New RSVP — Test Guest")
+        self.assertIn("Name: Test Guest", email["text"])
+        self.assertIn("Attending: Yes", email["text"])
+        self.assertIn("Number of guests: 2", email["text"])
+        self.assertIn("Accommodation requested: Yes", email["text"])
+        self.assertRegex(
+            email["text"],
+            r"Submitted: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
+        )
+        self.assertIn("https://wedding.example/admin", email["text"])
+        self.assertNotIn("guest@example.com", email["text"])
+        self.assertNotIn("Vegetarian", email["text"])
+        self.assertNotIn("Cannot wait", email["text"])
+        self.assertEqual(request.get_header("Authorization"), "Bearer server-side-test-key")
+        self.assertEqual(request.get_header("Idempotency-key"), "new-rsvp/1")
+        self.assertNotIn("server-side-test-key", request.data.decode("utf-8"))
+        self.assertEqual(send_email.call_args.kwargs["timeout"], 5)
+
+    def test_notification_failure_does_not_fail_or_roll_back_rsvp(self):
+        config.RSVP_NOTIFICATION_EMAILS = ["admin@example.com"]
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "rsvp@example.com"
+        config.RESEND_API_KEY = "server-side-test-key"
+
+        with patch.object(
+            rsvp_router,
+            "notify_new_rsvp",
+            side_effect=rsvp_notifications.EmailDeliveryError("provider details"),
+        ), patch.object(rsvp_router.logger, "error") as log_error:
+            response = self.submit(valid_payload())
+
+        with Session(self.engine) as session:
+            stored = session.exec(select(RSVP)).all()
+        self.assertEqual(response, {"status": "success"})
+        self.assertEqual(len(stored), 1)
+        self.assertEqual(log_error.call_count, 1)
+        self.assertNotIn("provider details", str(log_error.call_args))
+
+    def test_notifications_are_disabled_without_recipients(self):
+        config.RSVP_NOTIFICATION_EMAILS = []
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "rsvp@example.com"
+        config.RESEND_API_KEY = "server-side-test-key"
+
+        with patch.object(rsvp_notifications, "urlopen") as send_email:
+            response = self.submit(valid_payload())
+
+        self.assertEqual(response, {"status": "success"})
+        send_email.assert_not_called()
 
     def test_validation_requires_name_and_valid_email(self):
         with self.assertRaises(ValidationError):

@@ -73,6 +73,10 @@ Copy the checked-in `.env.example` files; never commit populated secrets or conn
 | `TURNSTILE_SECRET_KEY` | Backend | Secret used only by the API to verify RSVP challenges. |
 | `TURNSTILE_EXPECTED_HOSTNAME` | Backend | Optional hostname required in successful challenge results. |
 | `RSVP_RATE_LIMIT_SECRET` | Backend | Secret used to HMAC client addresses before rate-limit events are stored. |
+| `RSVP_NOTIFICATION_EMAILS` | Backend | Comma-separated wedding-admin recipients; leave empty to disable RSVP notifications. |
+| `RSVP_NOTIFICATION_FROM_EMAIL` | Backend | Verified sender address used for RSVP notifications. |
+| `RESEND_API_KEY` | Backend | Resend credential used only by the notification service. |
+| `RSVP_ADMIN_URL` | Backend | Optional direct admin-page URL included in notifications. |
 | `VITE_API_URL` | Frontend build/runtime | API base URL; use `/api` for the same-origin Vercel deployment. |
 | `VITE_TURNSTILE_SITE_KEY` | Frontend build/runtime | Public Turnstile widget site key. |
 

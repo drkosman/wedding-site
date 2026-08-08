@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
@@ -9,9 +11,11 @@ from ..abuse import (
 )
 from ..database import get_session
 from ..models import PublicRSVPRequest, RSVP, utcnow
+from ..rsvp_notifications import notify_new_rsvp
 
 
 router = APIRouter(tags=["RSVP"])
+logger = logging.getLogger(__name__)
 
 
 def create_public_rsvp(payload: PublicRSVPRequest, session: Session) -> RSVP:
@@ -57,5 +61,13 @@ def submit_rsvp(
             detail="Verification failed. Please refresh the challenge and try again.",
         )
 
-    create_public_rsvp(payload, session)
+    rsvp = create_public_rsvp(payload, session)
+    try:
+        notify_new_rsvp(rsvp)
+    except Exception as error:
+        logger.error(
+            "RSVP notification failed after persistence (rsvp_id=%s, error_type=%s)",
+            rsvp.id,
+            type(error).__name__,
+        )
     return {"status": "success"}
