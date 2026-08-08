@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useIsMobile } from './Hero/utils';
+import { useEffect, useRef, useState, type TouchEvent } from 'react';
+import { getSwipeDirection, useIsMobile } from './Hero/utils';
 
 const heroPhotoModules = import.meta.glob<string>(
   '../assets/hero-photos/*.{jpg,jpeg,png,webp,avif}',
@@ -23,6 +23,7 @@ const heroPhotos = Object.entries(heroPhotoModules)
 
 export default function Hero() {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   const isMobile = useIsMobile();
   useEffect(() => {
@@ -49,8 +50,43 @@ export default function Hero() {
     setActivePhotoIndex((currentIndex) => (currentIndex + 1) % heroPhotos.length);
   };
 
+  const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 1) {
+      touchStart.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+
+    if (!start || event.changedTouches.length !== 1) {
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    const direction = getSwipeDirection(start.x, start.y, touch.clientX, touch.clientY);
+
+    if (direction === 'left') {
+      showNextPhoto();
+    } else if (direction === 'right') {
+      showPreviousPhoto();
+    }
+  };
+
   return (
-    <section className="relative min-h-screen overflow-hidden bg-secondary text-white">
+    <section
+      className="relative min-h-screen touch-pan-y overflow-hidden bg-secondary text-white"
+      onTouchStart={heroPhotos.length > 1 ? handleTouchStart : undefined}
+      onTouchEnd={heroPhotos.length > 1 ? handleTouchEnd : undefined}
+      onTouchCancel={() => {
+        touchStart.current = null;
+      }}
+    >
       {hasPhotos ? (
         <div className="absolute inset-0" aria-hidden="true">
           {heroPhotos.map((photo, index) =>
@@ -87,14 +123,14 @@ export default function Hero() {
         </div>
       ) : (
         <div
-          className="absolute inset-0 bg-[linear-gradient(135deg,#f0f1f7_0%,#b8d5e6_52%,#f6e7d7_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(135deg,var(--color-surface)_0%,var(--color-secondary)_52%,var(--color-accent)_100%)]"
           aria-hidden="true"
         />
       )}
 
       <div className="absolute inset-0 bg-black/45" aria-hidden="true" />
       <div
-        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent"
+        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-white/45 to-transparent"
         aria-hidden="true"
       />
 

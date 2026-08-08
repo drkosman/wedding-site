@@ -18,7 +18,7 @@ export default function GettingThere() {
   }, []);
 
   return (
-    <section className="section bg-white text-center">
+    <section className="section bg-surface text-center">
       <div className="container-page max-w-3xl">
         <h2 className="text-3xl font-semibold mb-6">Getting There & Away</h2>
 
@@ -31,7 +31,7 @@ export default function GettingThere() {
                 <a
                   href="https://maps.app.goo.gl/V42FP9toV2imMUzV7"
                   target="_blank"
-                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline m-auto"
+                  className="text-primary-strong hover:text-primary-hover font-bold inline-flex items-center gap-1 underline m-auto"
                 >
                   Ceremony: St John's Scottish Episcopal Cathedral
                 </a>
@@ -40,7 +40,7 @@ export default function GettingThere() {
                 <a
                   href="https://maps.app.goo.gl/bg8bxSFaJbG3RMYt5"
                   target="_blank"
-                  className="text-muted-foreground font-bold inline-flex items-center gap-1 underline m-auto"
+                  className="text-primary-strong hover:text-primary-hover font-bold inline-flex items-center gap-1 underline m-auto"
                 >
                   Reception: Barnacarry Bay
                 </a>

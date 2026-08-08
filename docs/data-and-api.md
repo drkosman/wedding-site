@@ -27,7 +27,7 @@ erDiagram
         boolean friday_night
         boolean saturday_night
         boolean sunday_night
-        string dietary_requirements nullable
+        string dietaries nullable
         string message nullable
         datetime created_at
         datetime updated_at
@@ -108,7 +108,7 @@ The RSVP request shape is:
   "friday_night": false,
   "saturday_night": true,
   "sunday_night": false,
-  "dietary_requirements": "Vegetarian",
+  "dietaries": "Vegetarian",
   "message": "Looking forward to it",
   "website": "",
   "turnstile_token": "challenge-result"
@@ -166,7 +166,7 @@ Custom homepage sections use these protected endpoints:
 
 ## Schema migration and startup
 
-Startup first creates missing tables, then runs `backend/migrations/versions/v001_public_rsvp.py` and `v002_homepage_sections.py`. Applied versions are recorded once in `schema_migration`. For legacy databases, the first migration:
+Startup first creates missing tables, then runs the versioned migrations in `backend/migrations/versions/`, including the public RSVP, homepage section, and RSVP dietaries migrations. Applied versions are recorded once in `schema_migration`. For legacy databases, the first migration:
 
 - preserves invitation rows while removing obsolete invitation credential and plus-one columns;
 - preserves RSVP rows, copying invitation name/email into submitted contact fields where needed;
@@ -174,4 +174,4 @@ Startup first creates missing tables, then runs `backend/migrations/versions/v00
 - adds submitted identity, additional guest names, and creation timestamp columns;
 - creates the indexes required by the new model.
 
-SQLite rebuilds the two related tables transactionally with foreign keys temporarily disabled. PostgreSQL applies explicit alterations and removes the legacy unique constraint by inspection. The second migration creates `homepagesection` and its ordering indexes for existing databases. Both migrations are repeatable and tested. The old additive RSVP/content compatibility functions remain only for earlier non-token column versions; `create_all()` alone never alters existing schemas.
+SQLite rebuilds the two related tables transactionally with foreign keys temporarily disabled. PostgreSQL applies explicit alterations and removes the legacy unique constraint by inspection. The second migration creates `homepagesection` and its ordering indexes for existing databases. The third adds the nullable `rsvp.dietaries` column and removes the obsolete dietary column. The migrations are repeatable and tested. The old additive RSVP/content compatibility functions remain only for earlier non-token column versions; `create_all()` alone never alters existing schemas.

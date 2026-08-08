@@ -11,7 +11,7 @@ PUBLIC_MAX_GUESTS = 6
 NAME_MAX_LENGTH = 160
 EMAIL_MAX_LENGTH = 254
 ADDITIONAL_GUESTS_MAX_LENGTH = 600
-DIETARY_MAX_LENGTH = 1000
+DIETARIES_MAX_LENGTH = 1000
 MESSAGE_MAX_LENGTH = 2000
 HOMEPAGE_SECTION_TITLE_MAX_LENGTH = 160
 HOMEPAGE_SECTION_SUBTITLE_MAX_LENGTH = 300
@@ -92,7 +92,7 @@ class RSVP(SQLModel, table=True):
     friday_night: bool = False
     saturday_night: bool = False
     sunday_night: bool = False
-    dietary_requirements: Optional[str] = Field(default=None, max_length=DIETARY_MAX_LENGTH)
+    dietaries: Optional[str] = Field(default=None, max_length=DIETARIES_MAX_LENGTH)
     message: Optional[str] = Field(default=None, max_length=MESSAGE_MAX_LENGTH)
     created_at: datetime = Field(default_factory=utcnow, index=True)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -177,7 +177,7 @@ class RSVPDetails(BaseModel):
     friday_night: bool = False
     saturday_night: bool = False
     sunday_night: bool = False
-    dietary_requirements: Optional[str] = Field(default=None, max_length=DIETARY_MAX_LENGTH)
+    dietaries: Optional[str] = Field(default=None, max_length=DIETARIES_MAX_LENGTH)
     message: Optional[str] = Field(default=None, max_length=MESSAGE_MAX_LENGTH)
 
     @field_validator("full_name")
@@ -195,7 +195,7 @@ class RSVPDetails(BaseModel):
 
     @field_validator(
         "additional_guest_names",
-        "dietary_requirements",
+        "dietaries",
         "message",
         mode="before",
     )
@@ -214,7 +214,7 @@ class RSVPDetails(BaseModel):
                 raise ValueError("Attendance-dependent choices require wedding attendance")
             if self.friday_night or self.saturday_night or self.sunday_night:
                 raise ValueError("Room nights require wedding attendance")
-            if self.dietary_requirements:
+            if self.dietaries:
                 raise ValueError("Dietary requirements are only accepted when attending")
             return self
 

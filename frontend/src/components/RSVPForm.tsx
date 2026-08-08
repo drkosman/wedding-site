@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { api } from '../api/client';
 import {
   buildRSVPPayload,
+  HOTEL_RESERVATION_REQUESTS_ENABLED,
   PUBLIC_MAX_GUESTS,
   type RSVPFormData,
 } from './rsvpPayload';
@@ -35,7 +36,7 @@ export default function RSVPForm() {
       friday_night: false,
       saturday_night: false,
       sunday_night: false,
-      dietary_requirements: '',
+      dietaries: '',
       message: '',
       website: '',
     },
@@ -43,7 +44,12 @@ export default function RSVPForm() {
 
   const attending = useWatch({ control, name: 'attending' });
   const guestCount = useWatch({ control, name: 'guest_count' });
-  const hotelRequested = useWatch({ control, name: 'hotel_reservation_requested' });
+  const hotelReservationRequested = useWatch({
+    control,
+    name: 'hotel_reservation_requested',
+  });
+  const hotelRequested =
+    HOTEL_RESERVATION_REQUESTS_ENABLED && hotelReservationRequested;
 
   useEffect(() => {
     if (status === 'saved') {
@@ -52,7 +58,11 @@ export default function RSVPForm() {
   }, [status]);
 
   const onSubmit = async (data: RSVPFormData) => {
-    if (data.attending === 'yes' && data.hotel_reservation_requested) {
+    if (
+      HOTEL_RESERVATION_REQUESTS_ENABLED &&
+      data.attending === 'yes' &&
+      data.hotel_reservation_requested
+    ) {
       if (!data.friday_night && !data.saturday_night && !data.sunday_night) {
         setError('root.form', { message: 'Please select at least one requested room night.' });
         return;
@@ -86,19 +96,19 @@ export default function RSVPForm() {
   };
 
   const fieldError = (message?: string) =>
-    message ? <p className="mt-1 text-sm text-red-700">{message}</p> : null;
+    message ? <p className="field-error mt-1 text-sm">{message}</p> : null;
 
   return (
     <div
       ref={cardRef}
-      className="scroll-mt-24 mx-auto w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-white p-5 text-left shadow-[0_18px_50px_rgba(43,47,56,0.12)] sm:p-8"
+      className="scroll-mt-24 mx-auto w-full max-w-2xl rounded-lg border border-[var(--color-border)] bg-surface-raised p-5 text-left shadow-[0_18px_50px_rgba(24,61,58,0.13)] sm:p-8"
     >
       {status === 'saved' ? (
         <div className="py-8 text-center" role="status">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">
             RSVP received
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-foreground md:text-3xl">
+          <h2 className="mt-2 text-2xl font-semibold text-primary-strong md:text-3xl">
             Thank you. Your response has been saved.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
@@ -113,7 +123,7 @@ export default function RSVPForm() {
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">
               Wedding RSVP
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground md:text-3xl">
+            <h2 className="mt-2 text-2xl font-semibold text-primary-strong md:text-3xl">
               Tell us your plans
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
@@ -177,7 +187,7 @@ export default function RSVPForm() {
                       {...register('attending', { required: 'Please select an attendance response.' })}
                       className="peer sr-only"
                     />
-                    <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                    <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-surface-raised px-4 py-3 text-sm font-semibold transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-accent)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-strong)]">
                       {label}
                       <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border text-xs text-transparent">✓</span>
                     </span>
@@ -239,7 +249,7 @@ export default function RSVPForm() {
                     ].map(([value, label]) => (
                       <label key={value} className="cursor-pointer">
                         <input type="radio" value={value} {...register('sunday_event')} className="peer sr-only" />
-                        <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                        <span className="flex min-h-16 items-center justify-between rounded-lg border border-[var(--color-border)] bg-surface-raised px-4 py-3 text-sm font-semibold transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-accent)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-strong)]">
                           {label}
                           <span className="choice-indicator flex h-5 w-5 items-center justify-center rounded-full border text-xs text-transparent">✓</span>
                         </span>
@@ -248,15 +258,17 @@ export default function RSVPForm() {
                   </div>
                 </fieldset>
 
-                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input type="checkbox" {...register('hotel_reservation_requested')} className="mt-1 h-5 w-5 accent-[var(--color-primary-hover)]" />
-                    <span>
-                      <span className="block font-semibold">Request help with a hotel reservation</span>
-                      <span className="mt-1 block text-sm text-muted-foreground">Tell us which nights you need below.</span>
-                    </span>
-                  </label>
-                </div>
+                {HOTEL_RESERVATION_REQUESTS_ENABLED && (
+                  <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input type="checkbox" {...register('hotel_reservation_requested')} className="mt-1 h-5 w-5 accent-[var(--color-primary-hover)]" />
+                      <span>
+                        <span className="block font-semibold">Request help with a hotel reservation</span>
+                        <span className="mt-1 block text-sm text-muted-foreground">Tell us which nights you need below.</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
 
                 {hotelRequested && (
                   <fieldset className="form-group">
@@ -273,7 +285,7 @@ export default function RSVPForm() {
                             {...register(fieldName as 'friday_night' | 'saturday_night' | 'sunday_night')}
                             className="peer sr-only"
                           />
-                          <span className="block rounded-lg border border-[var(--color-border)] bg-white p-4 transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-secondary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-hover)]">
+                          <span className="block rounded-lg border border-[var(--color-border)] bg-surface-raised p-4 transition peer-checked:border-[var(--color-primary-hover)] peer-checked:bg-[var(--color-accent)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--color-primary-strong)]">
                             <span className="block font-semibold">{day}</span>
                             <span className="mt-1 block text-sm text-muted-foreground">{date}</span>
                           </span>
@@ -285,10 +297,10 @@ export default function RSVPForm() {
                 )}
 
                 <div className="form-group">
-                  <label className="label text-base" htmlFor="dietary-requirements">Dietary requirements</label>
+                  <label className="label text-base" htmlFor="dietaries">Dietary requirements</label>
                   <textarea
-                    id="dietary-requirements"
-                    {...register('dietary_requirements')}
+                    id="dietaries"
+                    {...register('dietaries')}
                     rows={4}
                     maxLength={1000}
                     className="textarea text-base"
@@ -318,12 +330,12 @@ export default function RSVPForm() {
             <TurnstileWidget onToken={setTurnstileToken} resetKey={challengeResetKey} />
 
             {errors.root?.form?.message && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p className="alert-error">
                 {errors.root.form.message}
               </p>
             )}
             {status === 'error' && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-sm text-red-700" role="alert">
+              <p className="alert-error text-center" role="alert">
                 {errorMessage}
               </p>
             )}

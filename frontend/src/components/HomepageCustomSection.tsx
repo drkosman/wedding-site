@@ -10,7 +10,7 @@ export default function HomepageCustomSection({
   muted = false,
 }: HomepageCustomSectionProps) {
   return (
-    <section className={`section text-center ${muted ? 'bg-secondary' : 'bg-white'}`}>
+    <section className={`section text-center ${muted ? 'bg-secondary' : 'bg-surface'}`}>
       <div className="container-page max-w-3xl">
         {section.subtitle && (
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--color-primary-hover)]">

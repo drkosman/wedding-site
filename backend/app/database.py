@@ -7,9 +7,11 @@ from .models import ContentEntry
 try:
     from backend.migrations.versions.v001_public_rsvp import upgrade as upgrade_public_rsvp
     from backend.migrations.versions.v002_homepage_sections import upgrade as upgrade_homepage_sections
+    from backend.migrations.versions.v003_rsvp_dietaries import upgrade as upgrade_rsvp_dietaries
 except ModuleNotFoundError:  # Backend container imports `app` from /app.
     from migrations.versions.v001_public_rsvp import upgrade as upgrade_public_rsvp
     from migrations.versions.v002_homepage_sections import upgrade as upgrade_homepage_sections
+    from migrations.versions.v003_rsvp_dietaries import upgrade as upgrade_rsvp_dietaries
 
 BOOLEAN_DEFAULT_FALSE = {
     "sunday_event",
@@ -29,6 +31,7 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
     upgrade_public_rsvp(engine)
     upgrade_homepage_sections(engine)
+    upgrade_rsvp_dietaries(engine)
     ensure_rsvp_columns()
     ensure_content_entry_columns()
     seed_default_content_entries()

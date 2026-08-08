@@ -65,6 +65,12 @@ class DatabaseMigrationTests(unittest.TestCase):
                         "WHERE id = '001_public_rsvp'"
                     )
                 ).scalar_one()
+                dietaries_migration_count = connection.execute(
+                    text(
+                        "SELECT COUNT(*) FROM schema_migration "
+                        "WHERE id = '003_rsvp_dietaries'"
+                    )
+                ).scalar_one()
             with database.Session(database.engine) as session:
                 guest = session.get(Guest, 1)
                 legacy_rsvp = session.get(RSVP, 1)
@@ -89,10 +95,13 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertNotIn("plus_one_allowed", guest_columns)
             self.assertIn("submitted_name", rsvp_columns)
             self.assertIn("created_at", rsvp_columns)
+            self.assertIn("dietaries", rsvp_columns)
+            self.assertNotIn("dietary_requirements", rsvp_columns)
             self.assertEqual(legacy_rsvp_values[0], "Existing Guest")
             self.assertEqual(legacy_rsvp_values[1], "existing@example.com")
             self.assertEqual(len(responses), 2)
             self.assertEqual(migration_count, 1)
+            self.assertEqual(dietaries_migration_count, 1)
         finally:
             database.engine = original_engine
             database_path.unlink(missing_ok=True)

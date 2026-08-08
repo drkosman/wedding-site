@@ -48,7 +48,7 @@ type RSVPRow = {
   friday_night: boolean;
   saturday_night: boolean;
   sunday_night: boolean;
-  dietary_requirements?: string | null;
+  dietaries?: string | null;
   message?: string | null;
   created_at: string;
   updated_at: string;
@@ -293,7 +293,7 @@ export default function Admin() {
             <label className="label" htmlFor="admin-secret">Admin secret</label>
             <input id="admin-secret" type="password" value={secretInput} onChange={(event) => setSecretInput(event.target.value)} className="input" autoComplete="current-password" />
           </div>
-          {error && <p className="text-sm text-red-700">{error}</p>}
+          {error && <p className="field-error text-sm">{error}</p>}
           <button type="submit" className="btn btn-primary w-full">Unlock Dashboard</button>
         </form>
       </main>
@@ -334,8 +334,8 @@ export default function Admin() {
         </section>
 
         {loading && <p className="card text-sm text-muted-foreground">Loading admin data…</p>}
-        {error && <p className="card border-red-200 text-sm text-red-700">{error}</p>}
-        {notice && <p className="card border-green-200 text-sm text-green-700">{notice}</p>}
+        {error && <p className="alert-error">{error}</p>}
+        {notice && <p className="alert-success">{notice}</p>}
 
         <HomepageSectionManager secret={secret} />
 
@@ -382,7 +382,7 @@ export default function Admin() {
                     <td className="px-4 py-4">{guest.max_guests}</td>
                     <td className="px-4 py-4"><label className="inline-flex items-center gap-2"><input type="checkbox" checked={guest.invite_sent} disabled={busyKey === `invite-${guest.id}`} onChange={(event) => handleInviteSent(guest, event.target.checked)} />{guest.invite_sent ? 'Sent' : 'Not sent'}</label></td>
                     <td className="px-4 py-4">{guest.matched_rsvp_count}</td>
-                    <td className="px-4 py-4"><button type="button" onClick={() => handleDeleteGuest(guest)} className="btn border border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100" disabled={busyKey === `guest-${guest.id}`}>Delete</button></td>
+                    <td className="px-4 py-4"><button type="button" onClick={() => handleDeleteGuest(guest)} className="btn btn-danger" disabled={busyKey === `guest-${guest.id}`}>Delete</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -401,16 +401,16 @@ export default function Admin() {
               <tbody className="divide-y divide-[var(--color-border)]">
                 {rsvps.map((rsvp) => (
                   <tr key={rsvp.id} className="align-top">
-                    <td className="px-4 py-4"><span className="block font-medium">{rsvp.submitted_name}</span><span className="block text-muted-foreground">{rsvp.email}</span>{rsvp.same_email_submission_count > 1 && <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 text-xs text-amber-900">{rsvp.same_email_submission_count} submissions use this email</span>}</td>
+                    <td className="px-4 py-4"><span className="block font-medium">{rsvp.submitted_name}</span><span className="block text-muted-foreground">{rsvp.email}</span>{rsvp.same_email_submission_count > 1 && <span className="badge-warning mt-2 inline-block rounded px-2 py-1 text-xs">{rsvp.same_email_submission_count} submissions use this email</span>}</td>
                     <td className="px-4 py-4">{formatBoolean(rsvp.attending)}</td>
                     <td className="px-4 py-4"><span className="block">{rsvp.guest_count}</span><span className="whitespace-pre-line text-muted-foreground">{rsvp.additional_guest_names || 'No additional guests'}</span></td>
                     <td className="px-4 py-4">{formatBoolean(rsvp.sunday_event)}</td>
                     <td className="px-4 py-4"><span className="block">{formatBoolean(rsvp.hotel_reservation_requested)}</span><span className="text-muted-foreground">{[rsvp.friday_night && 'Fri', rsvp.saturday_night && 'Sat', rsvp.sunday_night && 'Sun'].filter(Boolean).join(', ') || 'No nights'}</span></td>
-                    <td className="max-w-xs whitespace-pre-wrap px-4 py-4">{rsvp.dietary_requirements || 'None'}</td>
+                    <td className="max-w-xs whitespace-pre-wrap px-4 py-4">{rsvp.dietaries || 'None'}</td>
                     <td className="max-w-xs whitespace-pre-wrap px-4 py-4">{rsvp.message || 'None'}</td>
                     <td className="px-4 py-4"><span className="block">{formatDate(rsvp.created_at)}</span>{rsvp.updated_at !== rsvp.created_at && <span className="text-muted-foreground">Updated {formatDate(rsvp.updated_at)}</span>}</td>
                     <td className="px-4 py-4"><select value={rsvp.guest_id ?? ''} onChange={(event) => handleReconcile(rsvp, event.target.value)} className="input min-w-56" disabled={busyKey === `match-${rsvp.id}`}><option value="">Unmatched</option>{guests.map((guest) => <option key={guest.id} value={guest.id}>{guest.name} (max {guest.max_guests})</option>)}</select>{rsvp.guest_id && <p className="mt-2 text-xs text-muted-foreground">Matched to {rsvp.matched_guest_name}; invitation max {rsvp.invitation_max_guests}</p>}</td>
-                    <td className="px-4 py-4"><button type="button" onClick={() => handleDeleteRsvp(rsvp)} className="btn border border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100" disabled={busyKey === `rsvp-${rsvp.id}`}>Delete</button></td>
+                    <td className="px-4 py-4"><button type="button" onClick={() => handleDeleteRsvp(rsvp)} className="btn btn-danger" disabled={busyKey === `rsvp-${rsvp.id}`}>Delete</button></td>
                   </tr>
                 ))}
               </tbody>

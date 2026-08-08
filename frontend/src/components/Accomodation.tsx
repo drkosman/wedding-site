@@ -50,7 +50,7 @@ export default function Accommodation() {
                         href={websiteUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 underline"
+                        className="inline-flex items-center gap-1 text-primary-strong underline hover:text-primary-hover"
                       >
                         {accommodation.title}
                         <ExternalLink className="h-4 w-4 opacity-70" />
@@ -76,7 +76,7 @@ export default function Accommodation() {
                       href={websiteUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground underline"
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-primary-strong underline hover:text-primary-hover"
                     >
                       Website
                       <ExternalLink className="h-4 w-4 opacity-70" />

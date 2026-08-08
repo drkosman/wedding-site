@@ -54,7 +54,7 @@ def apply_rsvp_payload(rsvp: RSVP, payload: AdminRSVPRequest) -> RSVP:
     rsvp.friday_night = payload.friday_night
     rsvp.saturday_night = payload.saturday_night
     rsvp.sunday_night = payload.sunday_night
-    rsvp.dietary_requirements = payload.dietary_requirements
+    rsvp.dietaries = payload.dietaries
     rsvp.message = payload.message
     rsvp.updated_at = utcnow()
     return rsvp
@@ -150,7 +150,7 @@ def list_rsvps(
             "friday_night": rsvp.friday_night,
             "saturday_night": rsvp.saturday_night,
             "sunday_night": rsvp.sunday_night,
-            "dietary_requirements": rsvp.dietary_requirements,
+            "dietaries": rsvp.dietaries,
             "message": rsvp.message,
             "created_at": rsvp.created_at,
             "updated_at": rsvp.updated_at,
@@ -218,7 +218,7 @@ def export_rsvps_csv(
             "friday_night",
             "saturday_night",
             "sunday_night",
-            "dietary_requirements",
+            "dietaries",
             "message",
             "created_at",
             "updated_at",
@@ -240,7 +240,7 @@ def export_rsvps_csv(
                 rsvp.friday_night,
                 rsvp.saturday_night,
                 rsvp.sunday_night,
-                csv_safe(rsvp.dietary_requirements),
+                csv_safe(rsvp.dietaries),
                 csv_safe(rsvp.message),
                 rsvp.created_at,
                 rsvp.updated_at,

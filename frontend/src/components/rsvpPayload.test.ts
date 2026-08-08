@@ -14,7 +14,7 @@ function formData(overrides: Partial<RSVPFormData> = {}): RSVPFormData {
     friday_night: true,
     saturday_night: true,
     sunday_night: false,
-    dietary_requirements: ' Vegetarian ',
+    dietaries: ' Vegetarian ',
     message: ' Looking forward to it ',
     website: '',
     ...overrides,
@@ -30,11 +30,11 @@ describe('buildRSVPPayload', () => {
       guest_count: 2,
       additional_guest_names: 'Second Guest',
       sunday_event: false,
-      hotel_reservation_requested: true,
-      friday_night: true,
-      saturday_night: true,
+      hotel_reservation_requested: false,
+      friday_night: false,
+      saturday_night: false,
       sunday_night: false,
-      dietary_requirements: 'Vegetarian',
+      dietaries: 'Vegetarian',
       message: 'Looking forward to it',
       website: '',
       turnstile_token: 'challenge',
@@ -56,7 +56,7 @@ describe('buildRSVPPayload', () => {
       friday_night: false,
       saturday_night: false,
       sunday_night: false,
-      dietary_requirements: null,
+      dietaries: null,
     });
   });
 
@@ -68,6 +68,21 @@ describe('buildRSVPPayload', () => {
       friday_night: false,
       saturday_night: false,
       sunday_night: false,
+    });
+  });
+
+  it('disables hotel requests in the payload while the feature is paused', () => {
+    expect(buildRSVPPayload(formData(), 'challenge')).toMatchObject({
+      hotel_reservation_requested: false,
+      friday_night: false,
+      saturday_night: false,
+      sunday_night: false,
+    });
+  });
+
+  it('stores blank dietary details as null', () => {
+    expect(buildRSVPPayload(formData({ dietaries: '   ' }), 'challenge')).toMatchObject({
+      dietaries: null,
     });
   });
 });

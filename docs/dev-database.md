@@ -1,6 +1,6 @@
 # Local development database
 
-Docker Compose provides PostgreSQL 16 for local development. FastAPI startup creates application tables, runs the explicit public-RSVP and homepage-section migrations plus older compatibility changes, and seeds default site content.
+Docker Compose provides PostgreSQL 16 for local development. FastAPI startup creates application tables, runs the explicit public-RSVP, homepage-section, and RSVP-dietaries migrations plus older compatibility changes, and seeds default site content.
 
 ## Prerequisites and configuration
 

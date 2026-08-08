@@ -98,6 +98,6 @@ The application does not send email. Real invitation records, RSVP contact data/
 
 ## Persistence conventions
 
-`SQLModel.metadata.create_all()` creates missing tables only. Startup then runs the explicit public-RSVP and homepage-section migrations, older additive RSVP/content compatibility checks, and default content seeding. The RSVP migration preserves legacy invitation/RSVP rows while removing invitation credential columns and the one-to-one RSVP constraint. The homepage migration deliberately creates the new section table for existing databases. The migrations are repeatable, but this is not a general migration framework.
+`SQLModel.metadata.create_all()` creates missing tables only. Startup then runs the explicit public-RSVP, homepage-section, and RSVP-dietaries migrations, older additive RSVP/content compatibility checks, and default content seeding. The public-RSVP migration preserves legacy invitation/RSVP rows while removing invitation credential columns and the one-to-one RSVP constraint. The homepage migration deliberately creates the new section table for existing databases, while the dietaries migration adds the nullable RSVP text column. The migrations are repeatable, but this is not a general migration framework.
 
 API paths are defined without `/api` in routers and mounted with that prefix in `main.py`. Admin routes add `/admin`. Content kinds remain closed to `schedule`, `accommodation`, and `travel`, ordered by `sort_order` then `id`.

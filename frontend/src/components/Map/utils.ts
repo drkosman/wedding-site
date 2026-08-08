@@ -28,10 +28,10 @@ export function concentricRipples(scene: WebScene, center: Point) {
       }),
       symbol: {
         type: 'simple-fill',
-        color: new Color([245, 210, 55, startAlphaBG]),
+        color: new Color([0, 150, 136, startAlphaBG]),
         outline: {
           type: 'simple-line',
-          color: new Color([245, 210, 55, startAlphaOutline]),
+          color: new Color([0, 150, 136, startAlphaOutline]),
           width: 2,
         },
       },

@@ -267,8 +267,8 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
         </p>
       </div>
 
-      {error && <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-      {notice && <p className="rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{notice}</p>}
+      {error && <p className="alert-error">{error}</p>}
+      {notice && <p className="alert-success">{notice}</p>}
 
       <form onSubmit={handleCreate} className="space-y-4 rounded-lg border border-[var(--color-border)] p-4">
         <h3 className="text-base font-semibold">Add Homepage Section</h3>
@@ -318,7 +318,7 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
                   >
                     {isEditing ? 'Close' : 'Edit'}
                   </button>
-                  <button type="button" className="btn border border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100" disabled={saving} onClick={() => handleDelete(section)}>Delete</button>
+                  <button type="button" className="btn btn-danger" disabled={saving} onClick={() => handleDelete(section)}>Delete</button>
                 </div>
               </div>
 

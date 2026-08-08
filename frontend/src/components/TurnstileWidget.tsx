@@ -71,7 +71,7 @@ export default function TurnstileWidget({ onToken, resetKey }: TurnstileWidgetPr
     <div>
       <div ref={containerRef} className="min-h-[65px]" />
       {unavailable && (
-        <p className="mt-2 text-sm text-red-700">
+        <p className="field-error mt-2 text-sm">
           The verification challenge could not load. Please check your connection and refresh.
         </p>
       )}
