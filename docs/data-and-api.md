@@ -88,13 +88,15 @@ Text limits are: name 160, email 254, additional guest names 600, dietary requir
 | Method and path | Behavior |
 | --- | --- |
 | `GET /health` | Returns `{ "ok": true }` without querying the database. |
-| `POST /rsvps` | Verifies abuse controls, creates a new unmatched RSVP, then attempts an admin email notification. Returns `201` with a generic status even if post-commit notification delivery fails. |
+| `POST /rsvps` | Verifies abuse controls, creates a new unmatched RSVP, then independently attempts the admin notification and guest confirmation. Returns `201` with a generic status even if either post-commit email fails. |
 | `GET /content/{kind}` | Lists ordered public content. Unknown kinds return `404`. |
 | `GET /homepage-sections` | Lists custom homepage sections by `position`, `sort_order`, then `id`. Timestamps are omitted. |
 
 There is no public guest or RSVP read/search endpoint.
 
-Every successful public insert is a new submission and, when configured, gets a “New RSVP” admin notification. Same-name or same-email repeats are not updates and notify separately. Protected admin edits do not send notifications. Notification content deliberately omits the submitter's email, additional guest names, dietary information, message, and other detailed fields; the admin page remains canonical.
+Every successful public insert is a new submission and, when configured, gets a “New RSVP” admin notification plus a “received” confirmation sent to the persisted RSVP email. Same-name or same-email repeats are not updates and notify separately. The admin notification deliberately omits the submitter's email, additional guest names, dietary information, message, and other detailed fields; the admin page remains canonical for Lucy and Kosta.
+
+The guest confirmation returns the applicable persisted RSVP summary to its own submitted address. With the public party-size and hotel controls currently hidden, their stored default values are not displayed in email. Attending copies contain Sunday attendance, dietary requirements, and comment; declining copies omit attendance-dependent fields and can contain the comment. HTML values are escaped and a matching plain-text part is always supplied.
 
 The RSVP request shape is:
 
@@ -135,7 +137,7 @@ Every `/admin/*` endpoint requires an `x-admin-secret` header matching `ADMIN_SE
 | `DELETE /admin/guest/{guest_id}` | Deletes an invitation and unmatches, but preserves, linked RSVPs. |
 | `GET /admin/rsvps` | Lists every response, contact field, event choice, timestamp, match, and same-email count. |
 | `GET /admin/rsvps/export` | Exports all RSVP and reconciliation fields. |
-| `PUT /admin/rsvp/{rsvp_id}` | Validates and updates a specific response. |
+| `PUT /admin/rsvp/{rsvp_id}` | Validates and updates a specific response, then attempts an “updated” confirmation to the final persisted email. Email failure does not change the update response. |
 | `PATCH /admin/rsvp/{rsvp_id}/reconcile` | Matches/unmatches a response. Matching enforces that invitation's `max_guests`. |
 | `DELETE /admin/rsvp/{rsvp_id}` | Deletes a specific response. |
 | `GET /admin/summary` | Returns invitation, RSVP, matched/unmatched, attendance, Sunday, and hotel counts. |

@@ -1,6 +1,7 @@
 import json
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -58,11 +59,13 @@ class RSVPRouteTests(unittest.TestCase):
         self.original_notification_from_email = config.RSVP_NOTIFICATION_FROM_EMAIL
         self.original_resend_api_key = config.RESEND_API_KEY
         self.original_admin_url = config.RSVP_ADMIN_URL
+        self.original_website_url = config.WEDDING_WEBSITE_URL
         config.RSVP_RATE_LIMIT_SECRET = "test-rate-limit-secret"
         config.RSVP_NOTIFICATION_EMAILS = []
         config.RSVP_NOTIFICATION_FROM_EMAIL = None
         config.RESEND_API_KEY = None
         config.RSVP_ADMIN_URL = None
+        config.WEDDING_WEBSITE_URL = None
 
     def tearDown(self):
         config.RSVP_RATE_LIMIT_SECRET = self.original_rate_secret
@@ -70,6 +73,7 @@ class RSVPRouteTests(unittest.TestCase):
         config.RSVP_NOTIFICATION_FROM_EMAIL = self.original_notification_from_email
         config.RESEND_API_KEY = self.original_resend_api_key
         config.RSVP_ADMIN_URL = self.original_admin_url
+        config.WEDDING_WEBSITE_URL = self.original_website_url
 
     def submit(self, payload: PublicRSVPRequest, ip: str = "203.0.113.20"):
         with Session(self.engine) as session:
@@ -125,6 +129,7 @@ class RSVPRouteTests(unittest.TestCase):
         config.RSVP_NOTIFICATION_EMAILS = ["lucy@example.com", "kosta@example.com"]
         config.RSVP_NOTIFICATION_FROM_EMAIL = "Wedding RSVP <rsvp@example.com>"
         config.RESEND_API_KEY = "server-side-test-key"
+        config.WEDDING_WEBSITE_URL = "https://wedding.example"
         with patch.object(rsvp_notifications, "urlopen") as send_email:
             self.submit(valid_payload(), ip="203.0.113.21")
             self.submit(valid_payload(message="A corrected response"), ip="203.0.113.21")
@@ -132,23 +137,29 @@ class RSVPRouteTests(unittest.TestCase):
         with Session(self.engine) as session:
             stored = session.exec(select(RSVP)).all()
         self.assertEqual(len(stored), 2)
-        self.assertEqual(send_email.call_count, 2)
+        self.assertEqual(send_email.call_count, 4)
         subjects = [
             json.loads(call.args[0].data)["subject"]
             for call in send_email.call_args_list
         ]
-        self.assertEqual(subjects, ["New RSVP — Test Guest", "New RSVP — Test Guest"])
+        self.assertEqual(subjects.count("New RSVP — Test Guest"), 2)
+        self.assertEqual(subjects.count("We've received your RSVP — Lucy & Kosta"), 2)
 
     def test_successful_submission_sends_concise_notification_to_configured_recipients(self):
         config.RSVP_NOTIFICATION_EMAILS = ["lucy@example.com", "kosta@example.com"]
         config.RSVP_NOTIFICATION_FROM_EMAIL = "Wedding RSVP <rsvp@example.com>"
         config.RESEND_API_KEY = "server-side-test-key"
         config.RSVP_ADMIN_URL = "https://wedding.example/admin"
+        config.WEDDING_WEBSITE_URL = "https://wedding.example"
 
         with patch.object(rsvp_notifications, "urlopen") as send_email:
             response = self.submit(valid_payload())
 
-        request = send_email.call_args.args[0]
+        request = next(
+            call.args[0]
+            for call in send_email.call_args_list
+            if json.loads(call.args[0].data)["subject"] == "New RSVP — Test Guest"
+        )
         email = json.loads(request.data)
         self.assertEqual(response, {"status": "success"})
         self.assertEqual(email["to"], ["lucy@example.com", "kosta@example.com"])
@@ -156,8 +167,8 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertEqual(email["subject"], "New RSVP — Test Guest")
         self.assertIn("Name: Test Guest", email["text"])
         self.assertIn("Attending: Yes", email["text"])
-        self.assertIn("Number of guests: 2", email["text"])
-        self.assertIn("Accommodation requested: Yes", email["text"])
+        self.assertNotIn("Number of guests", email["text"])
+        self.assertNotIn("Accommodation", email["text"])
         self.assertRegex(
             email["text"],
             r"Submitted: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z",
@@ -175,11 +186,14 @@ class RSVPRouteTests(unittest.TestCase):
         config.RSVP_NOTIFICATION_EMAILS = ["admin@example.com"]
         config.RSVP_NOTIFICATION_FROM_EMAIL = "rsvp@example.com"
         config.RESEND_API_KEY = "server-side-test-key"
+        config.WEDDING_WEBSITE_URL = "https://wedding.example"
 
         with patch.object(
             rsvp_router,
             "notify_new_rsvp",
             side_effect=rsvp_notifications.EmailDeliveryError("provider details"),
+        ), patch.object(
+            rsvp_router, "notify_guest_confirmation", return_value=True
         ), patch.object(rsvp_router.logger, "error") as log_error:
             response = self.submit(valid_payload())
 
@@ -190,16 +204,34 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertEqual(log_error.call_count, 1)
         self.assertNotIn("provider details", str(log_error.call_args))
 
-    def test_notifications_are_disabled_without_recipients(self):
+    def test_notifications_are_disabled_without_email_configuration(self):
         config.RSVP_NOTIFICATION_EMAILS = []
-        config.RSVP_NOTIFICATION_FROM_EMAIL = "rsvp@example.com"
-        config.RESEND_API_KEY = "server-side-test-key"
 
         with patch.object(rsvp_notifications, "urlopen") as send_email:
             response = self.submit(valid_payload())
 
         self.assertEqual(response, {"status": "success"})
         send_email.assert_not_called()
+
+    def test_confirmation_failure_does_not_fail_or_roll_back_rsvp(self):
+        config.RSVP_NOTIFICATION_EMAILS = []
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "rsvp@example.com"
+        config.RESEND_API_KEY = "server-side-test-key"
+        config.WEDDING_WEBSITE_URL = "https://wedding.example"
+
+        with patch.object(
+            rsvp_router,
+            "notify_guest_confirmation",
+            side_effect=rsvp_notifications.EmailDeliveryError("provider details"),
+        ), patch.object(rsvp_router.logger, "error") as log_error:
+            response = self.submit(valid_payload())
+
+        with Session(self.engine) as session:
+            stored = session.exec(select(RSVP)).all()
+        self.assertEqual(response, {"status": "success"})
+        self.assertEqual(len(stored), 1)
+        self.assertEqual(log_error.call_count, 1)
+        self.assertNotIn("provider details", str(log_error.call_args))
 
     def test_validation_requires_name_and_valid_email(self):
         with self.assertRaises(ValidationError):
@@ -256,6 +288,139 @@ class RSVPRouteTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as error:
                 record_rate_limit_event(session, fingerprint)
         self.assertEqual(error.exception.status_code, 429)
+
+
+class RSVPConfirmationTests(unittest.TestCase):
+    def setUp(self):
+        self.original_website_url = config.WEDDING_WEBSITE_URL
+        self.original_from_email = config.RSVP_NOTIFICATION_FROM_EMAIL
+        self.original_resend_api_key = config.RESEND_API_KEY
+        config.WEDDING_WEBSITE_URL = "https://wedding.example"
+        config.RSVP_NOTIFICATION_FROM_EMAIL = "Wedding RSVP <rsvp@example.com>"
+        config.RESEND_API_KEY = "server-side-test-key"
+
+    def tearDown(self):
+        config.WEDDING_WEBSITE_URL = self.original_website_url
+        config.RSVP_NOTIFICATION_FROM_EMAIL = self.original_from_email
+        config.RESEND_API_KEY = self.original_resend_api_key
+
+    def rsvp(self, **overrides) -> RSVP:
+        values = {
+            "id": 42,
+            "submitted_name": "Test Guest",
+            "email": "guest@example.com",
+            "attending": True,
+            "guest_count": 1,
+            "created_at": datetime(2026, 8, 9, 12, 30, 15, 123456),
+            "updated_at": datetime(2026, 8, 10, 14, 45, 30, 654321),
+        }
+        values.update(overrides)
+        return RSVP(**values)
+
+    def test_attending_confirmation_contains_applicable_persisted_summary(self):
+        rsvp = self.rsvp(
+            submitted_name="Jamie & Morgan",
+            guest_count=3,
+            additional_guest_names="Alex <Guest>\nJo & Guest",
+            sunday_event=True,
+            hotel_reservation_requested=True,
+            friday_night=True,
+            sunday_night=True,
+            dietaries='<script>alert("dietary")</script>\nNut & dairy allergy',
+            message='<img src=x onerror="alert(1)">\nCan\'t wait & see you!',
+        )
+
+        message = rsvp_notifications.build_guest_confirmation(rsvp)
+
+        self.assertEqual(message.recipients, ("guest@example.com",))
+        self.assertEqual(message.subject, "We've received your RSVP — Lucy & Kosta")
+        self.assertIn("Attendance: Attending", message.text)
+        self.assertIn("Sunday attendance: Yes", message.text)
+        self.assertNotIn("Number attending", message.text)
+        self.assertNotIn("Additional guests", message.text)
+        self.assertNotIn("Accommodation", message.text)
+        self.assertNotIn("Requested nights", message.text)
+        self.assertIn("Your dietary requirements:", message.text)
+        self.assertIn("Your comment:", message.text)
+        self.assertIn("https://wedding.example", message.text)
+
+        self.assertIsNotNone(message.html)
+        html = message.html or ""
+        self.assertIn("https://wedding.example/email-assets/barnacarry-bay.jpg", html)
+        self.assertIn("https://wedding.example/email-assets/lucy-and-kosta.jpg", html)
+        self.assertIn('alt="Barnacarry Bay"', html)
+        self.assertIn('alt="Lucy and Kosta"', html)
+        self.assertIn("Jamie &amp; Morgan", html)
+        self.assertNotIn("Alex &lt;Guest&gt;", html)
+        self.assertIn("&lt;script&gt;alert(&quot;dietary&quot;)&lt;/script&gt;", html)
+        self.assertIn("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;<br>", html)
+        self.assertNotIn("<script>alert", html)
+        self.assertNotIn("<img src=x", html)
+
+    def test_declining_confirmation_omits_attendance_dependent_fields(self):
+        message = rsvp_notifications.build_guest_confirmation(
+            self.rsvp(
+                attending=False,
+                message="We will be thinking of you.",
+            )
+        )
+
+        self.assertIn("Attendance: Not attending", message.text)
+        self.assertIn("Your comment: We will be thinking of you.", message.text)
+        self.assertIn("sorry you won't be able to join us", message.text)
+        self.assertNotIn("Number attending", message.text)
+        self.assertNotIn("Sunday attendance", message.text)
+        self.assertNotIn("Accommodation", message.text)
+        self.assertNotIn("dietary", message.text.lower())
+        self.assertIn("sorry you won&#x27;t be able to join us", message.html or "")
+
+    def test_absent_optional_values_are_cleanly_omitted(self):
+        message = rsvp_notifications.build_guest_confirmation(
+            self.rsvp(sunday_event=False)
+        )
+
+        self.assertIn("Sunday attendance: No", message.text)
+        self.assertNotIn("Additional guests", message.text)
+        self.assertNotIn("Accommodation help", message.text)
+        self.assertNotIn("Your dietary requirements", message.text)
+        self.assertNotIn("Your comment", message.text)
+
+    def test_updated_confirmation_uses_updated_subject_content_and_version(self):
+        rsvp = self.rsvp(message="Latest persisted comment")
+
+        received = rsvp_notifications.build_guest_confirmation(rsvp)
+        updated = rsvp_notifications.build_guest_confirmation(rsvp, updated=True)
+
+        self.assertEqual(updated.subject, "Your RSVP has been updated — Lucy & Kosta")
+        self.assertIn("Your RSVP has been updated", updated.text)
+        self.assertIn("Updated: 2026-08-10T14:45:30Z", updated.text)
+        self.assertIn("RSVP updated", updated.html or "")
+        self.assertIn("Latest persisted comment", updated.text)
+        self.assertNotEqual(updated.idempotency_key, received.idempotency_key)
+        self.assertIn("20260810T144530654321Z", updated.idempotency_key)
+
+    def test_confirmation_provider_payload_has_html_text_and_guest_recipient(self):
+        with patch.object(rsvp_notifications, "urlopen") as send_email:
+            sent = rsvp_notifications.notify_guest_confirmation(self.rsvp())
+
+        request = send_email.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertTrue(sent)
+        self.assertEqual(payload["to"], ["guest@example.com"])
+        self.assertEqual(payload["subject"], "We've received your RSVP — Lucy & Kosta")
+        self.assertIn("Your RSVP summary", payload["html"])
+        self.assertIn("Your RSVP summary", payload["text"])
+        self.assertEqual(request.get_header("Authorization"), "Bearer server-side-test-key")
+
+    def test_public_email_assets_are_optimized_and_deployable(self):
+        public_assets = Path(__file__).resolve().parents[2] / "frontend" / "public" / "email-assets"
+        scenic = public_assets / "barnacarry-bay.jpg"
+        couple = public_assets / "lucy-and-kosta.jpg"
+
+        self.assertTrue(scenic.is_file())
+        self.assertTrue(couple.is_file())
+        self.assertLess(scenic.stat().st_size, 200_000)
+        self.assertLess(couple.stat().st_size, 100_000)
 
 
 if __name__ == "__main__":

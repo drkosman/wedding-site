@@ -77,6 +77,7 @@ Copy the checked-in `.env.example` files; never commit populated secrets or conn
 | `RSVP_NOTIFICATION_FROM_EMAIL` | Backend | Verified sender address used for RSVP notifications. |
 | `RESEND_API_KEY` | Backend | Resend credential used only by the notification service. |
 | `RSVP_ADMIN_URL` | Backend | Optional direct admin-page URL included in notifications. |
+| `WEDDING_WEBSITE_URL` | Backend | Public website base URL used by guest confirmation links and image URLs. |
 | `VITE_API_URL` | Frontend build/runtime | API base URL; use `/api` for the same-origin Vercel deployment. |
 | `VITE_TURNSTILE_SITE_KEY` | Frontend build/runtime | Public Turnstile widget site key. |
 
