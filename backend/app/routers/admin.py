@@ -24,7 +24,10 @@ from ..models import (
     RSVP,
     utcnow,
 )
-from ..rsvp_notifications import notify_guest_confirmation
+from ..rsvp_notifications import (
+    notification_error_log_detail,
+    notify_guest_confirmation,
+)
 from .content import (
     list_content_entries,
     list_homepage_sections,
@@ -288,9 +291,10 @@ def admin_update_rsvp(
     except Exception as error:
         logger.error(
             "RSVP update confirmation failed after persistence "
-            "(rsvp_id=%s, error_type=%s)",
+            "(rsvp_id=%s, error_type=%s, error_detail=%s)",
             rsvp.id,
             type(error).__name__,
+            notification_error_log_detail(error),
         )
     return {"id": rsvp.id, "guest_id": rsvp.guest_id, "updated_at": rsvp.updated_at}
 

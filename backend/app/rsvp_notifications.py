@@ -1,4 +1,7 @@
 import json
+import re
+import socket
+import ssl
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
@@ -12,8 +15,19 @@ from .models import RSVP
 
 RESEND_EMAILS_URL = "https://api.resend.com/emails"
 EMAIL_TIMEOUT_SECONDS = 5
+EMAIL_USER_AGENT = "lucy-and-kosta-wedding/1.0"
 SCENIC_IMAGE_PATH = "/email-assets/barnacarry-bay.jpg"
 COUPLE_IMAGE_PATH = "/email-assets/lucy-and-kosta.jpg"
+
+_DELIVERY_ERROR_CATEGORIES = {
+    "delivery_error",
+    "invalid_rsvp_state",
+    "provider_http_error",
+    "provider_network_error",
+    "provider_timeout",
+}
+_NETWORK_ERROR_CATEGORIES = {"dns", "network", "tls"}
+_PROVIDER_CODE_PATTERN = re.compile(r"[A-Za-z0-9_.-]{1,80}")
 
 
 class NotificationConfigurationError(RuntimeError):
@@ -21,7 +35,58 @@ class NotificationConfigurationError(RuntimeError):
 
 
 class EmailDeliveryError(RuntimeError):
-    pass
+    """A delivery failure with a deliberately non-sensitive log diagnostic."""
+
+    def __init__(
+        self,
+        category: str = "delivery_error",
+        *,
+        status_code: int | None = None,
+        provider_code: str | None = None,
+        network_category: str | None = None,
+    ) -> None:
+        self.category = (
+            category if category in _DELIVERY_ERROR_CATEGORIES else "delivery_error"
+        )
+        self.status_code = status_code if isinstance(status_code, int) else None
+        self.provider_code = _sanitize_provider_code(provider_code)
+        self.network_category = (
+            network_category
+            if network_category in _NETWORK_ERROR_CATEGORIES
+            else None
+        )
+        super().__init__("Email delivery failed")
+
+    @property
+    def log_detail(self) -> str:
+        parts = [self.category]
+        if self.status_code is not None:
+            parts.append(f"status={self.status_code}")
+        if self.provider_code:
+            parts.append(f"provider_code={self.provider_code}")
+        if self.network_category:
+            parts.append(f"category={self.network_category}")
+        if self.category == "provider_timeout":
+            parts.append(f"timeout_seconds={EMAIL_TIMEOUT_SECONDS}")
+        return " ".join(parts)
+
+
+def _sanitize_provider_code(value: object) -> str | None:
+    if isinstance(value, int):
+        value = str(value)
+    if isinstance(value, str) and _PROVIDER_CODE_PATTERN.fullmatch(value):
+        return value
+    return None
+
+
+def notification_error_log_detail(error: Exception) -> str:
+    """Return useful diagnostics without RSVP data, addresses, or provider text."""
+
+    if isinstance(error, EmailDeliveryError):
+        return error.log_detail
+    if isinstance(error, NotificationConfigurationError):
+        return str(error)
+    return "unexpected_error"
 
 
 @dataclass(frozen=True)
@@ -54,9 +119,13 @@ def _delivery_credentials() -> tuple[str, str] | None:
     api_key = (config.RESEND_API_KEY or "").strip()
     if not sender and not api_key:
         return None
-    if not sender or not api_key:
+    if not sender:
         raise NotificationConfigurationError(
-            "RSVP notification sender and provider credentials must be configured together"
+            "missing_environment_variable=RSVP_NOTIFICATION_FROM_EMAIL"
+        )
+    if not api_key:
+        raise NotificationConfigurationError(
+            "missing_environment_variable=RESEND_API_KEY"
         )
     return sender, api_key
 
@@ -66,9 +135,42 @@ def _website_url() -> str:
     parsed = urlparse(website_url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise NotificationConfigurationError(
-            "A valid WEDDING_WEBSITE_URL is required for RSVP confirmations"
+            "invalid_environment_variable=WEDDING_WEBSITE_URL"
         )
     return website_url
+
+
+def _provider_error_code(error: HTTPError) -> str | None:
+    try:
+        response_body = error.read(8192)
+    except Exception:
+        return None
+
+    try:
+        response_data = json.loads(response_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # Resend documents Cloudflare error 1010 as occurring before its API,
+        # where the response can be HTML rather than Resend's usual JSON.
+        return "1010" if b"1010" in response_body else None
+
+    if not isinstance(response_data, dict):
+        return None
+    for key in ("code", "name"):
+        provider_code = _sanitize_provider_code(response_data.get(key))
+        if provider_code:
+            return provider_code
+    return None
+
+
+def _network_error_category(error: URLError) -> str:
+    reason = error.reason
+    if isinstance(reason, TimeoutError):
+        return "timeout"
+    if isinstance(reason, socket.gaierror):
+        return "dns"
+    if isinstance(reason, ssl.SSLError):
+        return "tls"
+    return "network"
 
 
 def _send_resend_email(message: EmailMessage, sender: str, api_key: str) -> None:
@@ -88,6 +190,7 @@ def _send_resend_email(message: EmailMessage, sender: str, api_key: str) -> None
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Idempotency-Key": message.idempotency_key,
+            "User-Agent": EMAIL_USER_AGENT,
         },
         method="POST",
     )
@@ -95,8 +198,21 @@ def _send_resend_email(message: EmailMessage, sender: str, api_key: str) -> None
     try:
         with urlopen(request, timeout=EMAIL_TIMEOUT_SECONDS):
             pass
-    except (HTTPError, URLError, TimeoutError) as error:
-        raise EmailDeliveryError("Email provider request failed") from error
+    except HTTPError as error:
+        raise EmailDeliveryError(
+            "provider_http_error",
+            status_code=error.code,
+            provider_code=_provider_error_code(error),
+        ) from error
+    except TimeoutError as error:
+        raise EmailDeliveryError("provider_timeout") from error
+    except URLError as error:
+        network_category = _network_error_category(error)
+        if network_category == "timeout":
+            raise EmailDeliveryError("provider_timeout") from error
+        raise EmailDeliveryError(
+            "provider_network_error", network_category=network_category
+        ) from error
 
 
 def _admin_notification(rsvp: RSVP) -> EmailMessage:
@@ -113,7 +229,7 @@ def _admin_notification(rsvp: RSVP) -> EmailMessage:
         lines.extend(["", f"Review the full RSVP: {admin_url}"])
 
     if rsvp.id is None:
-        raise EmailDeliveryError("RSVP must be persisted before notification")
+        raise EmailDeliveryError("invalid_rsvp_state")
     return EmailMessage(
         recipients=tuple(config.RSVP_NOTIFICATION_EMAILS),
         subject=f"New RSVP — {rsvp.submitted_name}",
@@ -130,7 +246,8 @@ def notify_new_rsvp(rsvp: RSVP) -> bool:
     credentials = _delivery_credentials()
     if not credentials:
         raise NotificationConfigurationError(
-            "RSVP notification sender and provider credentials are required"
+            "missing_environment_variables="
+            "RSVP_NOTIFICATION_FROM_EMAIL,RESEND_API_KEY"
         )
     _send_resend_email(_admin_notification(rsvp), *credentials)
     return True
@@ -290,7 +407,7 @@ def _confirmation_text(rsvp: RSVP, updated: bool, website_url: str) -> str:
 
 def build_guest_confirmation(rsvp: RSVP, updated: bool = False) -> EmailMessage:
     if rsvp.id is None:
-        raise EmailDeliveryError("RSVP must be persisted before confirmation")
+        raise EmailDeliveryError("invalid_rsvp_state")
     website_url = _website_url()
     subject = (
         "Your RSVP has been updated — Lucy & Kosta"

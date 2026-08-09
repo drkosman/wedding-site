@@ -20,7 +20,7 @@ export default function Schedule() {
     <section className="section bg-surface text-center">
       <div className="container-page max-w-2xl">
         <h2 className="text-3xl font-semibold mb-6">Schedule</h2>
-        <h3 className="font-semibold mb-6">Further details coming soon...</h3>
+        <h3 className="font-semibold mb-6">Join us for Saturday and Sunday</h3>
         <div className="w-20 h-px mx-auto mb-14 bg-primary/40 rounded-full" />
 
         {loading && <p className="text-muted-foreground">Loading schedule...</p>}
