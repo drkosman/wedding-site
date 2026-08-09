@@ -11,7 +11,7 @@ from ..abuse import (
 )
 from ..database import get_session
 from ..models import PublicRSVPRequest, RSVP, utcnow
-from ..rsvp_notifications import notify_new_rsvp
+from ..rsvp_notifications import notify_guest_confirmation, notify_new_rsvp
 
 
 router = APIRouter(tags=["RSVP"])
@@ -67,6 +67,14 @@ def submit_rsvp(
     except Exception as error:
         logger.error(
             "RSVP notification failed after persistence (rsvp_id=%s, error_type=%s)",
+            rsvp.id,
+            type(error).__name__,
+        )
+    try:
+        notify_guest_confirmation(rsvp)
+    except Exception as error:
+        logger.error(
+            "RSVP confirmation failed after persistence (rsvp_id=%s, error_type=%s)",
             rsvp.id,
             type(error).__name__,
         )

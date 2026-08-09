@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 from collections import Counter
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -23,6 +24,7 @@ from ..models import (
     RSVP,
     utcnow,
 )
+from ..rsvp_notifications import notify_guest_confirmation
 from .content import (
     list_content_entries,
     list_homepage_sections,
@@ -34,6 +36,7 @@ from .utils import verify_admin
 
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+logger = logging.getLogger(__name__)
 
 
 def csv_safe(value):
@@ -280,6 +283,15 @@ def admin_update_rsvp(
     session.add(rsvp)
     session.commit()
     session.refresh(rsvp)
+    try:
+        notify_guest_confirmation(rsvp, updated=True)
+    except Exception as error:
+        logger.error(
+            "RSVP update confirmation failed after persistence "
+            "(rsvp_id=%s, error_type=%s)",
+            rsvp.id,
+            type(error).__name__,
+        )
     return {"id": rsvp.id, "guest_id": rsvp.guest_id, "updated_at": rsvp.updated_at}
 
 

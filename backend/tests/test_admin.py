@@ -2,6 +2,7 @@ import asyncio
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -151,29 +152,55 @@ class AdminRouteTests(unittest.TestCase):
 
     def test_admin_update_edits_submission_and_preserves_identity_fields(self):
         rsvp = self.create_rsvp()
-        with Session(self.engine) as session:
-            admin_update_rsvp(
-                rsvp.id,
-                admin_payload(
-                    full_name="Corrected Name",
-                    email="corrected@example.com",
-                    attending=False,
-                    guest_count=1,
-                    additional_guest_names=None,
-                    sunday_event=False,
-                    hotel_reservation_requested=False,
-                    saturday_night=False,
-                    message="Updated by admin",
-                ),
-                session,
-                None,
-            )
-            stored = session.get(RSVP, rsvp.id)
+        with patch.object(admin, "notify_guest_confirmation") as send_confirmation:
+            with Session(self.engine) as session:
+                admin_update_rsvp(
+                    rsvp.id,
+                    admin_payload(
+                        full_name="Corrected Name",
+                        email="corrected@example.com",
+                        attending=False,
+                        guest_count=1,
+                        additional_guest_names=None,
+                        sunday_event=False,
+                        hotel_reservation_requested=False,
+                        saturday_night=False,
+                        message="Updated by admin",
+                    ),
+                    session,
+                    None,
+                )
+                stored = session.get(RSVP, rsvp.id)
 
         self.assertEqual(stored.submitted_name, "Corrected Name")
         self.assertEqual(stored.email, "corrected@example.com")
         self.assertFalse(stored.attending)
         self.assertEqual(stored.message, "Updated by admin")
+        sent_rsvp = send_confirmation.call_args.args[0]
+        self.assertEqual(sent_rsvp.email, "corrected@example.com")
+        self.assertEqual(sent_rsvp.message, "Updated by admin")
+        self.assertEqual(send_confirmation.call_args.kwargs, {"updated": True})
+
+    def test_admin_update_confirmation_failure_does_not_rollback_update(self):
+        rsvp = self.create_rsvp()
+        with patch.object(
+            admin,
+            "notify_guest_confirmation",
+            side_effect=RuntimeError("provider details"),
+        ), patch.object(admin.logger, "error") as log_error:
+            with Session(self.engine) as session:
+                response = admin_update_rsvp(
+                    rsvp.id,
+                    admin_payload(message="Persist this update"),
+                    session,
+                    None,
+                )
+                stored = session.get(RSVP, rsvp.id)
+
+        self.assertEqual(response["id"], rsvp.id)
+        self.assertEqual(stored.message, "Persist this update")
+        self.assertEqual(log_error.call_count, 1)
+        self.assertNotIn("provider details", str(log_error.call_args))
 
     def test_deleting_guest_unmatches_but_preserves_submission(self):
         guest = self.create_guest()
