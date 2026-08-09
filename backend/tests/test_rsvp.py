@@ -1,9 +1,12 @@
+import io
 import json
+import socket
 import sys
 import unittest
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -179,6 +182,9 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertNotIn("Cannot wait", email["text"])
         self.assertEqual(request.get_header("Authorization"), "Bearer server-side-test-key")
         self.assertEqual(request.get_header("Idempotency-key"), "new-rsvp/1")
+        self.assertEqual(
+            request.get_header("User-agent"), "lucy-and-kosta-wedding/1.0"
+        )
         self.assertNotIn("server-side-test-key", request.data.decode("utf-8"))
         self.assertEqual(send_email.call_args.kwargs["timeout"], 5)
 
@@ -203,6 +209,7 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertEqual(len(stored), 1)
         self.assertEqual(log_error.call_count, 1)
         self.assertNotIn("provider details", str(log_error.call_args))
+        self.assertIn("delivery_error", str(log_error.call_args))
 
     def test_notifications_are_disabled_without_email_configuration(self):
         config.RSVP_NOTIFICATION_EMAILS = []
@@ -232,6 +239,7 @@ class RSVPRouteTests(unittest.TestCase):
         self.assertEqual(len(stored), 1)
         self.assertEqual(log_error.call_count, 1)
         self.assertNotIn("provider details", str(log_error.call_args))
+        self.assertIn("delivery_error", str(log_error.call_args))
 
     def test_validation_requires_name_and_valid_email(self):
         with self.assertRaises(ValidationError):
@@ -421,6 +429,96 @@ class RSVPConfirmationTests(unittest.TestCase):
         self.assertTrue(couple.is_file())
         self.assertLess(scenic.stat().st_size, 200_000)
         self.assertLess(couple.stat().st_size, 100_000)
+
+
+class RSVPEmailDeliveryDiagnosticsTests(unittest.TestCase):
+    def message(self) -> rsvp_notifications.EmailMessage:
+        return rsvp_notifications.EmailMessage(
+            recipients=("private-guest@example.com",),
+            subject="Test subject",
+            text="Private RSVP text",
+            idempotency_key="diagnostic-test/1",
+        )
+
+    def test_http_failure_exposes_only_status_and_safe_provider_code(self):
+        response = {
+            "name": "validation_error",
+            "message": "Invalid recipient private-guest@example.com",
+        }
+        http_error = HTTPError(
+            rsvp_notifications.RESEND_EMAILS_URL,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(json.dumps(response).encode("utf-8")),
+        )
+
+        with patch.object(
+            rsvp_notifications, "urlopen", side_effect=http_error
+        ), self.assertRaises(rsvp_notifications.EmailDeliveryError) as raised:
+            rsvp_notifications._send_resend_email(
+                self.message(), "sender@example.com", "secret-api-key"
+            )
+
+        detail = rsvp_notifications.notification_error_log_detail(raised.exception)
+        self.assertEqual(
+            detail,
+            "provider_http_error status=403 provider_code=validation_error",
+        )
+        self.assertNotIn("private-guest@example.com", detail)
+        self.assertNotIn("secret-api-key", detail)
+
+    def test_pre_api_1010_failure_is_identified_without_logging_html(self):
+        http_error = HTTPError(
+            rsvp_notifications.RESEND_EMAILS_URL,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(b"<html>Error code 1010: request blocked</html>"),
+        )
+
+        with patch.object(
+            rsvp_notifications, "urlopen", side_effect=http_error
+        ), self.assertRaises(rsvp_notifications.EmailDeliveryError) as raised:
+            rsvp_notifications._send_resend_email(
+                self.message(), "sender@example.com", "secret-api-key"
+            )
+
+        self.assertEqual(
+            rsvp_notifications.notification_error_log_detail(raised.exception),
+            "provider_http_error status=403 provider_code=1010",
+        )
+
+    def test_dns_and_timeout_failures_have_distinct_diagnostics(self):
+        failures = (
+            (
+                URLError(socket.gaierror("private network detail")),
+                "provider_network_error category=dns",
+            ),
+            (
+                TimeoutError("private timeout detail"),
+                "provider_timeout timeout_seconds=5",
+            ),
+        )
+
+        for failure, expected_detail in failures:
+            with self.subTest(expected_detail=expected_detail), patch.object(
+                rsvp_notifications, "urlopen", side_effect=failure
+            ), self.assertRaises(rsvp_notifications.EmailDeliveryError) as raised:
+                rsvp_notifications._send_resend_email(
+                    self.message(), "sender@example.com", "secret-api-key"
+                )
+            self.assertEqual(
+                rsvp_notifications.notification_error_log_detail(raised.exception),
+                expected_detail,
+            )
+
+    def test_unexpected_error_text_is_not_exposed_to_logs(self):
+        detail = rsvp_notifications.notification_error_log_detail(
+            RuntimeError("private RSVP or provider detail")
+        )
+
+        self.assertEqual(detail, "unexpected_error")
 
 
 if __name__ == "__main__":
