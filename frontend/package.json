@@ -15,6 +15,7 @@
     "@arcgis/map-components": "^5.0.6",
     "@deck.gl/extensions": "^9.2.7",
     "@esri/calcite-components": "^5.0.2",
+    "@fontsource/cormorant-garamond": "^5.2.8",
     "axios": "^1.13.5",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.11.0",
