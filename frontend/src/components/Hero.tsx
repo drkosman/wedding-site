@@ -134,19 +134,9 @@ export default function Hero() {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <div className="container-page flex flex-col items-center">
-          <h1 className="mb-6 text-5xl font-semibold tracking-tight text-white drop-shadow-md md:text-6xl">
-            Lucy & Kosta
-          </h1>
-
-          <p className="text-xl font-medium text-white drop-shadow">May 1st, 2027</p>
-
-          <p className="mt-2 text-white/90 drop-shadow">Barnacarry Bay</p>
-
-          <p className="mt-16 animate-pulse text-md text-white/80 drop-shadow">Scroll to RSVP ↓</p>
-        </div>
-      </div>
+      <p className="pointer-events-none absolute inset-x-0 bottom-20 z-20 animate-pulse px-6 text-center text-base text-white/80 drop-shadow">
+        Scroll to continue ↓
+      </p>
 
       {heroPhotos.length > 1 ? (
         <div className="absolute inset-x-0 bottom-6 z-20 flex items-center justify-center gap-4 px-6">

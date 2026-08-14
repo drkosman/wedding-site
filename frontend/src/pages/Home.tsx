@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 
 import { getHomepageSections, type HomepageSection } from '../api/homepageSections';
 import Hero from '../components/Hero';
+import Invitation from '../components/Invitation';
 import Details from '../components/Details';
 import Schedule from '../components/Schedule';
 import Accomodation from '../components/Accomodation';
@@ -44,8 +45,9 @@ export default function Home() {
   const customIndexByPosition = new Map<number, number>();
 
   return (
-    <div>
+    <div className="public-site">
       <Hero />
+      <Invitation />
       {composeHomepageSections(customSections).map((item) => {
         if (item.type === 'fixed') {
           const FixedSection = fixedSectionComponents[item.key];
