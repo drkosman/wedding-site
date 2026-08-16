@@ -8,6 +8,7 @@ import {
   homepagePositionLabel,
   type HomepageSection,
 } from '../../api/homepageSections';
+import MarkdownContent from '../MarkdownContent';
 
 type HomepageSectionForm = {
   title: string;
@@ -76,6 +77,8 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [newContentView, setNewContentView] = useState<'edit' | 'preview'>('edit');
+  const [editContentView, setEditContentView] = useState<'edit' | 'preview'>('edit');
 
   const refresh = useCallback(async () => {
     const response = await adminApi.get<HomepageSection[]>('/homepage-sections', {
@@ -108,6 +111,7 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
       });
       await refresh();
       setNewForm({ ...emptyForm });
+      setNewContentView('edit');
       setNotice('Homepage section added.');
     } catch (requestError) {
       setError(requestErrorDetail(requestError, 'Homepage section could not be added.'));
@@ -201,6 +205,8 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
     form: HomepageSectionForm,
     setForm: (update: (current: HomepageSectionForm) => HomepageSectionForm) => void,
     prefix: string,
+    contentView: 'edit' | 'preview',
+    setContentView: (view: 'edit' | 'preview') => void,
   ) => (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="form-group">
@@ -244,16 +250,50 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
         </select>
       </div>
       <div className="form-group md:col-span-2">
-        <label className="label" htmlFor={`${prefix}-content`}>Content</label>
-        <textarea
-          id={`${prefix}-content`}
-          className="textarea min-h-40"
-          required
-          maxLength={10000}
-          value={form.content}
-          onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-          placeholder="Use blank lines to separate paragraphs."
-        />
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <label className="label mb-0" htmlFor={`${prefix}-content`}>Content (Markdown)</label>
+          <div className="flex rounded-md border border-[var(--color-border)] p-1" role="group" aria-label="Content view">
+            <button
+              type="button"
+              className={`rounded px-3 py-1 text-xs font-semibold transition ${contentView === 'edit' ? 'bg-[var(--color-primary-hover)] text-white' : 'text-[var(--color-primary-strong)] hover:bg-muted'}`}
+              aria-pressed={contentView === 'edit'}
+              onClick={() => setContentView('edit')}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className={`rounded px-3 py-1 text-xs font-semibold transition ${contentView === 'preview' ? 'bg-[var(--color-primary-hover)] text-white' : 'text-[var(--color-primary-strong)] hover:bg-muted'}`}
+              aria-pressed={contentView === 'preview'}
+              onClick={() => setContentView('preview')}
+            >
+              Preview
+            </button>
+          </div>
+        </div>
+        {contentView === 'edit' ? (
+          <textarea
+            id={`${prefix}-content`}
+            className="textarea min-h-64 font-mono leading-relaxed"
+            required
+            maxLength={10000}
+            value={form.content}
+            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+            placeholder="Use blank lines to separate paragraphs."
+          />
+        ) : (
+          <div className="min-h-64 rounded-md border border-[var(--color-border)] bg-surface px-5 py-4" aria-label="Markdown preview">
+            {form.content.trim() ? (
+              <MarkdownContent content={form.content} />
+            ) : (
+              <p className="text-sm italic text-muted-foreground">Nothing to preview yet.</p>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Formatting: <code>**bold**</code>, <code>*italic*</code>, <code>### Heading</code>,{' '}
+          <code>- List item</code>, <code>[link text](https://...)</code>
+        </p>
       </div>
     </div>
   );
@@ -263,7 +303,7 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
       <div>
         <h2 className="text-xl font-semibold">Custom Homepage Sections</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Add plain-text sections between the fixed parts of the public homepage.
+          Add Markdown-formatted sections between the fixed parts of the public homepage.
         </p>
       </div>
 
@@ -272,7 +312,13 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
 
       <form onSubmit={handleCreate} className="space-y-4 rounded-lg border border-[var(--color-border)] p-4">
         <h3 className="text-base font-semibold">Add Homepage Section</h3>
-        {renderForm(newForm, setNewForm, 'new-homepage-section')}
+        {renderForm(
+          newForm,
+          setNewForm,
+          'new-homepage-section',
+          newContentView,
+          setNewContentView,
+        )}
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Saving...' : 'Add Section'}
         </button>
@@ -298,9 +344,7 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
                   </p>
                   <h3 className="mt-1 text-base font-semibold">{section.title}</h3>
                   {section.subtitle && <p className="mt-1 text-sm">{section.subtitle}</p>}
-                  <p className="mt-2 max-w-3xl whitespace-pre-line text-sm text-muted-foreground">
-                    {section.content}
-                  </p>
+                  <MarkdownContent content={section.content} className="mt-2 max-w-3xl text-sm" />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="btn btn-outline px-3 py-2" disabled={indexAtPosition === 0 || saving} onClick={() => handleMove(section, -1)}>Up</button>
@@ -312,6 +356,7 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
                     onClick={() => {
                       setEditId(isEditing ? null : section.id);
                       setEditForm(isEditing ? { ...emptyForm } : createForm(section));
+                      setEditContentView('edit');
                       setError(null);
                       setNotice(null);
                     }}
@@ -324,7 +369,13 @@ export default function HomepageSectionManager({ secret }: HomepageSectionManage
 
               {isEditing && (
                 <div className="mt-5 space-y-4 border-t border-[var(--color-border)] pt-5">
-                  {renderForm(editForm, setEditForm, `edit-homepage-section-${section.id}`)}
+                  {renderForm(
+                    editForm,
+                    setEditForm,
+                    `edit-homepage-section-${section.id}`,
+                    editContentView,
+                    setEditContentView,
+                  )}
                   <div className="flex flex-wrap gap-3">
                     <button type="button" className="btn btn-primary" disabled={saving} onClick={() => handleSave(section)}>{saving ? 'Saving...' : 'Save Section'}</button>
                     <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setEditId(null)}>Cancel</button>

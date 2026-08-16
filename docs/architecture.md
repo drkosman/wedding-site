@@ -8,7 +8,7 @@ The public home page composes the hero, wedding details, public RSVP form, ArcGI
 
 Important frontend locations are:
 
-- `pages/Home.tsx`, `pages/homepageComposition.ts`, and `components/HomepageCustomSection.tsx` — fixed/custom homepage composition and safe plain-text section rendering;
+- `pages/Home.tsx`, `pages/homepageComposition.ts`, `components/HomepageCustomSection.tsx`, and `components/MarkdownContent.tsx` — fixed/custom homepage composition and safe Markdown rendering;
 - `components/RSVPSection.tsx` — the public RSVP entry point;
 - `components/RSVPForm.tsx` and `rsvpPayload.ts` — conditional form state, browser validation, normalization, and submission;
 - `components/TurnstileWidget.tsx` — explicit Cloudflare Turnstile widget loading and lifecycle;
@@ -96,7 +96,7 @@ The dashboard can:
 - create, edit, reorder, and delete schedule, accommodation, and travel content;
 - create, edit, position, reorder, and delete reusable custom homepage sections.
 
-Custom homepage sections use plain text rather than HTML or Markdown. React escapes the title, optional subtitle, and content, while CSS preserves intentional line breaks. An administrator selects one of seven stable placement slots: after the hero or after any of the six fixed content sections. Up/down controls reorder sections that share a slot and save immediately; changing the placement in the edit form moves the section to the end of the selected slot. This permits placement between any current fixed sections without moving the fixed components themselves into the database.
+Custom homepage section content is stored as raw Markdown source, separate from the plain-text title and optional subtitle. The frontend renders it with the shared `MarkdownContent` component on both the public homepage and the admin preview. Raw HTML is skipped, unsafe URL protocols are rejected, and remote Markdown images are not rendered. Site-specific CSS styles headings as subsections beneath the section title and applies the wedding typography, palette, spacing, link states, lists, blockquotes, and responsive wrapping. The admin editor provides an editing-friendly multiline field, concise syntax help, and Edit/Preview controls. An administrator selects one of seven stable placement slots: after the hero or after any of the six fixed content sections. Up/down controls reorder sections that share a slot and save immediately; changing the placement in the edit form moves the section to the end of the selected slot. This permits placement between any current fixed sections without moving the fixed components themselves into the database.
 
 ## RSVP notifications
 
