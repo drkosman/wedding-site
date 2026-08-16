@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import HomepageCustomSection from '../components/HomepageCustomSection';
-import { HomepageSectionEmptyState } from '../components/admin/HomepageSectionManager';
+import MarkdownContent from '../components/MarkdownContent';
+import HomepageSectionManager, {
+  HomepageSectionEmptyState,
+} from '../components/admin/HomepageSectionManager';
 import type { HomepageSection } from '../api/homepageSections';
 import { composeHomepageSections } from './homepageComposition';
 
@@ -61,9 +64,70 @@ describe('homepage composition', () => {
     );
 
     expect(html).toContain('Travel update');
-    expect(html).toContain('whitespace-pre-line');
-    expect(html).toContain('&lt;script&gt;alert(&quot;no&quot;)&lt;/script&gt;\nNext line');
     expect(html).not.toContain('<script>');
+    expect(html).not.toContain('alert(&quot;no&quot;)');
+    expect(html).toContain('Next line');
+  });
+
+  it('renders supported Markdown with wedding-site content markup', () => {
+    const html = renderToStaticMarkup(
+      <MarkdownContent content={`Plain text
+on a new line.
+
+Second paragraph with **bold**, *italic*, and [travel details](#travel).
+
+### Getting there
+
+- Coach
+- Parking
+
+1. Arrive
+2. Celebrate
+
+> A quiet note
+
+---`} />,
+    );
+
+    expect(html).toContain('class="markdown-content"');
+    expect(html).toContain('Plain text<br/>\non a new line.');
+    expect(html).toContain('</p>\n<p>Second paragraph');
+    expect(html).toContain('<strong>bold</strong>');
+    expect(html).toContain('<em>italic</em>');
+    expect(html).toContain('<a href="#travel">travel details</a>');
+    expect(html).toContain('<h3>Getting there</h3>');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<ol>');
+    expect(html).toContain('<blockquote>');
+    expect(html).toContain('<hr/>');
+  });
+
+  it('keeps Markdown HTML, scripts, unsafe links, and images inert', () => {
+    const html = renderToStaticMarkup(
+      <MarkdownContent content={`Before <span onclick="alert('no')">inside</span> after.
+
+<script>alert('no')</script>
+
+[unsafe](javascript:alert('no'))
+
+![remote image](https://example.com/tracker.png)`} />,
+    );
+
+    expect(html).not.toContain('<span onclick');
+    expect(html).not.toContain('<script');
+    expect(html).not.toContain('onclick');
+    expect(html).not.toContain('javascript:');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('<a href="">unsafe</a>');
+    expect(html).toContain('remote image');
+  });
+
+  it('demotes top-level Markdown headings beneath the section title', () => {
+    const html = renderToStaticMarkup(<MarkdownContent content={'# Heading\n\n## Subheading'} />);
+
+    expect(html).not.toContain('<h1>');
+    expect(html).not.toContain('<h2>');
+    expect(html.match(/<h3>/g)).toHaveLength(2);
   });
 
   it('gives admins a clear empty state and creation direction', () => {
@@ -71,5 +135,16 @@ describe('homepage composition', () => {
 
     expect(html).toContain('No custom homepage sections yet.');
     expect(html).toContain('create the first one');
+  });
+
+  it('offers administrators Markdown editing help and a preview toggle', () => {
+    const html = renderToStaticMarkup(<HomepageSectionManager secret="test-secret" />);
+
+    expect(html).toContain('Content (Markdown)');
+    expect(html).toContain('font-mono');
+    expect(html).toContain('min-h-64');
+    expect(html).toContain('Preview');
+    expect(html).toContain('### Heading');
+    expect(html).toContain('[link text](https://...)');
   });
 });

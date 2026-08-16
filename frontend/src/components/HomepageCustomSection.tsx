@@ -1,4 +1,5 @@
 import type { HomepageSection } from '../api/homepageSections';
+import MarkdownContent from './MarkdownContent';
 
 type HomepageCustomSectionProps = {
   section: HomepageSection;
@@ -19,9 +20,7 @@ export default function HomepageCustomSection({
         )}
         <h2 className="mb-6 text-3xl font-semibold">{section.title}</h2>
         <div className="mx-auto mb-8 h-px w-20 rounded-full bg-primary/40" />
-        <p className="mx-auto max-w-2xl whitespace-pre-line text-left text-base text-muted-foreground">
-          {section.content}
-        </p>
+        <MarkdownContent content={section.content} className="mx-auto max-w-2xl" />
       </div>
     </section>
   );

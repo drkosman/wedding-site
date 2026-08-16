@@ -79,7 +79,7 @@ Text limits are: name 160, email 254, additional guest names 600, dietary requir
 
 ### Custom homepage sections
 
-`HomepageSection` stores a reusable plain-text section for the public homepage. `title` and `content` are required and trimmed; a blank `subtitle` becomes `null`. Limits are 160 characters for title, 300 for subtitle, and 10,000 for content. Unknown request fields are rejected.
+`HomepageSection` stores a reusable section for the public homepage. `content` is raw Markdown source; generated HTML is never persisted. `title` and `content` are required and trimmed, while a blank `subtitle` becomes `null`. Limits are 160 characters for title, 300 for subtitle, and 10,000 for content. Unknown request fields are rejected. The frontend owns Markdown rendering and wedding-specific styling, skips raw HTML, rejects unsafe link protocols, and does not render Markdown images.
 
 `position` is a required integer from 0 through 6 identifying a gap in the fixed homepage composition: after the hero, then after Wedding Details, RSVP, the map, Schedule, Accommodation, or Getting There & Away. `sort_order` orders multiple custom sections within one position, with `id` as the deterministic tie-breaker. Creation appends within the chosen position; moving to another position appends there; reorder and delete operations compact the affected order.
 
