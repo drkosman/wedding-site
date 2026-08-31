@@ -128,7 +128,7 @@ export default function RSVPForm() {
               Tell us your plans
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-              Enter your own details exactly as you would like us to recognise them.
+              Please fill out one RSVP per guest.
             </p>
           </div>
 
@@ -250,7 +250,7 @@ export default function RSVPForm() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     {[
                       ['yes', 'Yes, count me in'],
-                      ['no', 'No Sunday plans'],
+                      ['no', 'No, just the Saturday for me'],
                     ].map(([value, label]) => (
                       <label key={value} className="cursor-pointer">
                         <input type="radio" value={value} {...register('sunday_event')} className="peer sr-only" />

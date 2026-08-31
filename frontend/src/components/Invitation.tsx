@@ -2,11 +2,11 @@ export default function Invitation() {
   return (
     <section className="invitation-section" aria-labelledby="invitation-couple">
       <div className="invitation-inner">
-        <p className="invitation-parents">Mark and Nicki Wakeford</p>
+        <p className="invitation-parents">Mr & Mrs Mark Wakeford</p>
 
         <div className="invitation-wording">
-          <p>have the pleasure of inviting you</p>
-          <p>to the wedding of</p>
+          <p>request the pleasure of your company</p>
+          <p>to celebrate the marriage of</p>
         </div>
 
         <h2 id="invitation-couple" className="invitation-couple">
