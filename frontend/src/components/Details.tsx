@@ -12,6 +12,7 @@ export default function Details() {
             className="text-primary-strong hover:text-primary-hover font-bold inline-flex items-center gap-1 underline"
           >
             St John’s episcopal cathedral, Oban
+            </a>
             <ExternalLink className="w-4 h-4 opacity-70" />
           <p>More details below.</p>
         </div>
