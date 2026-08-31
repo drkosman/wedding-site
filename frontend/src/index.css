@@ -66,7 +66,7 @@
 
   p {
     color: var(--color-muted-foreground);
-    @apply leading-relaxed;
+    @apply leading-relaxed text-lg;
   }
 
   a {

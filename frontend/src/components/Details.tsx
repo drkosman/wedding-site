@@ -7,13 +7,12 @@ export default function Details() {
         <div className="space-y-2 text-lg">
           <p>Saturday, May 1st, 2027</p>
           <a
-            href="https://maps.app.goo.gl/bg8bxSFaJbG3RMYt5"
+            href="https://maps.app.goo.gl/UhaxTc5Df63ZYWqTA"
             target="_blank"
             className="text-primary-strong hover:text-primary-hover font-bold inline-flex items-center gap-1 underline"
           >
-            Barnacarry Bay, Scotland
+            St John’s episcopal cathedral, Oban
             <ExternalLink className="w-4 h-4 opacity-70" />
-          </a>
           <p>More details below.</p>
         </div>
         <p className="mt-10 text-muted-foreground">We can’t wait to celebrate with you.</p>
