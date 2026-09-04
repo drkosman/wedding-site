@@ -2,9 +2,9 @@ import type { HomepageSection } from '../api/homepageSections';
 
 export const FIXED_HOMEPAGE_SECTIONS = [
   'details',
+  'schedule',
   'rsvp',
   'map',
-  'schedule',
   'accommodation',
   'travel',
 ] as const;
